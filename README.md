@@ -27,8 +27,8 @@ This fork turns Nightingale's self-hosted web mode into a first-class party-nigh
 
 <table>
   <tr>
-    <td align="center">![Party Mode host running on Windows](screenshots/server.png)</td>
-    <td align="center">![Guest page opened from a phone](screenshots/guest.png)</td>
+    <td align="center"><img src="screenshots/server.png" alt="Party Mode host running on Windows" width="460"></td>
+    <td align="center"><img src="screenshots/guest.png" alt="Guest page opened from a phone" width="240"></td>
   </tr>
   <tr>
     <td align="center"><em><code>server.exe</code> — the host</em></td>
