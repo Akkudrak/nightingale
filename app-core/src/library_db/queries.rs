@@ -16,6 +16,7 @@ use crate::library_model::{
 use super::connection::with_conn;
 use super::migrations::{is_song_migration_in_progress, song_migration_done, song_migration_total};
 use super::songs::load_song_from_payload_column;
+use super::text::fold_accents;
 
 pub(crate) fn load_meta_sql() -> rusqlite::Result<SongsMeta> {
     if is_song_migration_in_progress() {
@@ -101,7 +102,13 @@ fn search_words_from_query(q: &str) -> Option<Vec<String>> {
     }
     let words: Vec<String> = t
         .split_whitespace()
-        .map(escape_like_pattern)
+        // Fold accents on the input so "José" and "jose" bind to the
+        // same LIKE pattern. The same fold runs on metadata columns
+        // inside SQLite via the `unaccent(...)` scalar registered on
+        // every open, so the predicate below stays accent-insensitive
+        // even when stored tags contain precomposed or pre-decomposed
+        // diacritics. Then escape LIKE wildcards.
+        .map(|word| escape_like_pattern(&fold_accents(word)))
         .filter(|w| !w.is_empty())
         .collect();
     if words.is_empty() { None } else { Some(words) }
@@ -112,10 +119,15 @@ fn songs_where_like_words(words: &[String]) -> (String, Vec<String>) {
     let mut parts = Vec::new();
     for w in words {
         parts.push(
-            "(s.title LIKE ('%' || ? || '%') ESCAPE '\\' OR \
-             s.artist LIKE ('%' || ? || '%') ESCAPE '\\' OR \
-             s.album LIKE ('%' || ? || '%') ESCAPE '\\' OR \
-             s.path LIKE ('%' || ? || '%') ESCAPE '\\')",
+            // title / artist / album go through `unaccent(...)` so the
+            // accent-folded search term still matches stored values;
+            // `path` is filesystem-literal and must keep its original
+            // diacritics (folding would silently mis-bind to a
+            // different file on Windows).
+            "(unaccent(s.title) LIKE ('%' || ? || '%') ESCAPE '\\' OR \
+              unaccent(s.artist) LIKE ('%' || ? || '%') ESCAPE '\\' OR \
+              unaccent(s.album) LIKE ('%' || ? || '%') ESCAPE '\\' OR \
+              s.path LIKE ('%' || ? || '%') ESCAPE '\\')",
         );
         for _ in 0..4 {
             flat.push(w.clone());

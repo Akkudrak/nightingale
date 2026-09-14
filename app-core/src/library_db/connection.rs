@@ -9,8 +9,10 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
 use rusqlite::Connection;
+use rusqlite::functions::FunctionFlags;
 
 use super::migrations::{configure, run_migrations};
+use super::text::fold_accents;
 
 static LIBRARY_DB: OnceLock<Mutex<Connection>> = OnceLock::new();
 
@@ -54,7 +56,29 @@ pub(super) fn open_connection(path: &Path) -> rusqlite::Result<Connection> {
     let conn = Connection::open(path)?;
     configure(&conn)?;
     run_migrations(&conn)?;
+    install_text_functions(&conn)?;
     Ok(conn)
+}
+
+/// Mirror [`super::text::fold_accents`] inside SQLite as a custom
+/// scalar so search predicates can compare against an
+/// accent-stripped copy of each metadata column without a schema
+/// migration or a per-row denormalised blob.
+///
+/// `SQLITE_UTF8` tells the engine the function operates on UTF-8
+/// text rather than raw BLOB bytes; `SQLITE_DETERMINISTIC` lets the
+/// planner cache invocations and reuse the same folded value across
+/// identical rows.
+fn install_text_functions(conn: &Connection) -> rusqlite::Result<()> {
+    conn.create_scalar_function(
+        "unaccent",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx: &rusqlite::functions::Context<'_>| -> rusqlite::Result<String> {
+            let s: String = ctx.get(0)?;
+            Ok(fold_accents(&s))
+        },
+    )
 }
 
 pub(crate) fn with_conn<T, F: FnOnce(&Connection) -> rusqlite::Result<T>>(

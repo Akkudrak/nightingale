@@ -29,6 +29,7 @@ mod queries;
 mod rebase;
 pub(crate) mod remote;
 mod songs;
+mod text;
 
 pub(crate) use analysis_queue::{
     analysis_queue_clear, analysis_queue_delete, analysis_queue_load_rows,

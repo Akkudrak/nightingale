@@ -16,11 +16,12 @@ urlencoding = "2"
 rand = "0.9"
 tiny_http = "0.12.0"
 tracing = "0.1"
-rusqlite = { version = "0.39.0", features = ["bundled"] }
+rusqlite = { version = "0.39.0", features = ["bundled", "functions"] }
 url = "2"
 chacha20poly1305 = "0.10"
 base64 = "0.22"
 md-5 = "0.10"
+unicode-normalization = { version = "0.1", default-features = false }
 
 [build-dependencies]
 dotenvy = "0.15"

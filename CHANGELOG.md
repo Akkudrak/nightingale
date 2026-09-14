@@ -32,6 +32,7 @@ below.
 - Analysis status sorting now orders ready songs by the transcript source shown in their status badge.
 - Fixed a `TypeError: Cannot read properties of undefined (reading 'processed_count')` crash in the guest song list when TanStack Query invoked `getNextPageParam` with `undefined` before the first page resolved. The runtime guard is documented as a narrow exception because the upstream type narrows away the `undefined` case.
 - Fixed mouse-wheel scroll not working on the guest song list and artist sidebar/drawer. The Radix `ScrollArea` is replaced with native `overflow-y-auto` (`themed-scrollbar`) — same primitive the desktop library browser uses, with consistent scrollbar styling and reliable wheel/touch handling.
+- Library search is now accent-insensitive across `title` / `artist` / `album` in both the guest browser and the desktop library. "Jose" / "José" / "JOSÉ" all match the same songs because the input is Unicode-folded before binding and the SQLite layer exposes a matching `unaccent(...)` scalar that runs the same fold on metadata columns (`path` keeps raw LIKE since it is filesystem-literal). No data migration, no schema change — the fold is applied at query time and registered on every connection open via `rusqlite::create_scalar_function`.
 
 ## [1.2.0] - 2026-09-02
 
