@@ -8,6 +8,12 @@ const playbackQueueEntrySchema = z.object({
   song: songSchema,
   tempo: z.number(),
   keyOffset: z.number(),
+  // Profile that queued the song. Older builds may omit it; treat that as
+  // an unknown enqueuer rather than failing the whole queue.
+  addedBy: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? null),
 });
 const playbackQueueSchema = z.array(playbackQueueEntrySchema);
 
@@ -22,8 +28,16 @@ export const addPlaybackQueueEntry = async (
   fileHash: string,
   tempo: number,
   keyOffset: number,
+  addedBy?: string | null,
 ): Promise<PlaybackQueueEntry[]> =>
-  parseQueue(await invoke('add_playback_queue_entry', { fileHash, tempo, keyOffset }));
+  parseQueue(
+    await invoke('add_playback_queue_entry', {
+      fileHash,
+      tempo,
+      keyOffset,
+      addedBy: addedBy ?? null,
+    }),
+  );
 
 export const removePlaybackQueueEntry = async (id: string): Promise<PlaybackQueueEntry[]> =>
   parseQueue(await invoke('remove_playback_queue_entry', { id }));

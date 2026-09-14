@@ -21,3 +21,11 @@ export const deleteProfile = async (name: string): Promise<void> => {
 export const addScore = async (songHash: string, score: number): Promise<void> => {
   return await invoke<void>('add_score', { songHash, score });
 };
+
+export const addFavorite = async (songHash: string): Promise<void> => {
+  return await invoke<void>('add_favorite', { songHash });
+};
+
+export const removeFavorite = async (songHash: string): Promise<void> => {
+  return await invoke<void>('remove_favorite', { songHash });
+};

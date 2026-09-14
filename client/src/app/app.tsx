@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Routes, Route } from 'react-router';
 
 import { UPDATES_SUPPORTED } from '@/bridge/platform';
+import { GuestRoute } from '@/features/guest/guest';
 import { MenuIndex, MenuLayout } from '@/features/menu/menu';
 import { MenuFocusProvider } from '@/features/menu/providers/menu-focus-context';
 import { Playback } from '@/features/playback/playback';
@@ -35,6 +36,7 @@ const InnerWrapper = () => (
             <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path="/playback" element={<Playback />} />
+          <Route path="/guest" element={<GuestRoute />} />
         </Routes>
       </BrowserRouter>
     </MenuFocusProvider>

@@ -12,6 +12,14 @@ pub struct ScoreRecord {
     pub played_at: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub struct FavoriteRecord {
+    pub profile: String,
+    pub song_hash: String,
+    pub favorited_at: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
 #[ts(export)]
 pub struct ProfileStore {
@@ -19,6 +27,8 @@ pub struct ProfileStore {
     pub profiles: Vec<String>,
     #[serde(default)]
     pub scores: Vec<ScoreRecord>,
+    #[serde(default)]
+    pub favorites: Vec<FavoriteRecord>,
 }
 
 impl ProfileStore {
@@ -70,6 +80,8 @@ impl ProfileStore {
 
         self.scores.retain(|r| r.profile != name);
 
+        self.favorites.retain(|r| r.profile != name);
+
         if self.active.as_deref() == Some(name) {
             self.active = self.profiles.first().cloned();
         }
@@ -120,5 +132,36 @@ impl ProfileStore {
         sorted.sort_by(|a, b| b.1.cmp(&a.1));
         sorted.truncate(limit);
         sorted
+    }
+
+    pub fn is_favorite(&self, profile: &str, song_hash: &str) -> bool {
+        self.favorites
+            .iter()
+            .any(|r| r.profile == profile && r.song_hash == song_hash)
+    }
+
+    pub fn add_favorite(&mut self, profile: &str, song_hash: &str) {
+        if self.is_favorite(profile, song_hash) {
+            return;
+        }
+        let favorited_at = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        self.favorites.push(FavoriteRecord {
+            profile: profile.to_string(),
+            song_hash: song_hash.to_string(),
+            favorited_at,
+        });
+        self.save();
+    }
+
+    pub fn remove_favorite(&mut self, profile: &str, song_hash: &str) {
+        let before = self.favorites.len();
+        self.favorites
+            .retain(|r| !(r.profile == profile && r.song_hash == song_hash));
+        if self.favorites.len() != before {
+            self.save();
+        }
     }
 }

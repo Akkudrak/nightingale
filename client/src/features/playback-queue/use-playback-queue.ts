@@ -16,6 +16,7 @@ import {
   preparePlayback,
   type PreparePlaybackInput,
 } from '@/features/playback/mutations/use-prepare-playback-mutation';
+import { useCurrentProfile } from '@/features/profiles/hooks/use-current-profile';
 import { PLAYBACK_QUEUE } from '@/shared/query-keys';
 import type { Song } from '@/types/Song';
 
@@ -49,11 +50,16 @@ export function usePlaybackQueueQuery() {
 
 export function useAddPlaybackQueueEntry() {
   const queryClient = useQueryClient();
+  const currentProfile = useCurrentProfile();
 
   return useMutation({
     mutationFn: ({ song, tempo, keyOffset }: PreparePlaybackInput) =>
-      addPlaybackQueueEntry(song.file_hash, tempo, keyOffset),
-    onSuccess: (entries) => queryClient.setQueryData(PLAYBACK_QUEUE, entries),
+      addPlaybackQueueEntry(song.file_hash, tempo, keyOffset, currentProfile ?? null),
+    onSuccess: (entries, variables) => {
+      queryClient.setQueryData(PLAYBACK_QUEUE, entries);
+      const title = variables.song.title.trim() === '' ? 'Untitled' : variables.song.title;
+      toast.success(`Added “${title}” to the queue`);
+    },
     onError: (error: Error) => toast.error(`Could not add song to queue: ${error.message}`),
   });
 }

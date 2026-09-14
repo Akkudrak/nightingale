@@ -22,8 +22,9 @@ pub(crate) fn add_playback_queue_entry(
     file_hash: String,
     tempo: f64,
     key_offset: i32,
+    added_by: Option<String>,
 ) -> Result<Vec<PlaybackQueueEntry>, String> {
-    let entries = queue.add(&file_hash, tempo, key_offset)?;
+    let entries = queue.add(&file_hash, tempo, key_offset, added_by)?;
     emit_queue(&app, &entries)?;
     Ok(entries)
 }

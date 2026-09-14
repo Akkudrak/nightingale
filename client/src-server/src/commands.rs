@@ -109,6 +109,36 @@ async fn dispatch(state: AppState, name: &str, payload: Value) -> CmdResult {
             store.add_score(&args.song_hash, args.score);
             Ok(Value::Null)
         }
+        "add_favorite" => {
+            #[derive(Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                song_hash: String,
+            }
+            let args: Args = deserialize(payload)?;
+            let mut store = ProfileStore::load();
+            let profile = match store.active.clone() {
+                Some(p) => p,
+                None => return Ok(Value::Null),
+            };
+            store.add_favorite(&profile, &args.song_hash);
+            Ok(Value::Null)
+        }
+        "remove_favorite" => {
+            #[derive(Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                song_hash: String,
+            }
+            let args: Args = deserialize(payload)?;
+            let mut store = ProfileStore::load();
+            let profile = match store.active.clone() {
+                Some(p) => p,
+                None => return Ok(Value::Null),
+            };
+            store.remove_favorite(&profile, &args.song_hash);
+            Ok(Value::Null)
+        }
 
         // ── Playback queue ───────────────────────────────────────────────
         "load_playback_queue" => {
@@ -122,11 +152,13 @@ async fn dispatch(state: AppState, name: &str, payload: Value) -> CmdResult {
                 file_hash: String,
                 tempo: f64,
                 key_offset: i32,
+                #[serde(default)]
+                added_by: Option<String>,
             }
             let args: Args = deserialize(payload)?;
             let entries = state
                 .playback_queue
-                .add(&args.file_hash, args.tempo, args.key_offset)
+                .add(&args.file_hash, args.tempo, args.key_offset, args.added_by)
                 .map_err(ApiError::bad_request)?;
             events.emit("playback-queue-changed", &entries);
             Ok(serde_json::to_value(entries).map_err(serde_err)?)

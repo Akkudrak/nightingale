@@ -13,6 +13,10 @@ pub struct PlaybackQueueEntry {
     pub song: Song,
     pub tempo: f64,
     pub key_offset: i32,
+    // Profile that queued the song, when known. `serde(default)` keeps
+    // backward compatibility with clients that predate this field.
+    #[serde(default)]
+    pub added_by: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -34,6 +38,7 @@ impl PlaybackQueue {
         file_hash: &str,
         tempo: f64,
         key_offset: i32,
+        added_by: Option<String>,
     ) -> Result<Vec<PlaybackQueueEntry>, String> {
         let song = SongsStore::load_by_hashes(&[file_hash.to_string()])
             .into_iter()
@@ -50,6 +55,7 @@ impl PlaybackQueue {
             song,
             tempo,
             key_offset,
+            added_by,
         });
 
         Ok(entries.iter().cloned().collect())

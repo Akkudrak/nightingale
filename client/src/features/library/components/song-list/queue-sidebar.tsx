@@ -85,6 +85,7 @@ export function QueueSidebar({ entries, onClose }: QueueSidebarProps) {
                   </div>
                   <p className="truncate text-xs text-muted-foreground">
                     {entry.song.artist || '—'}
+                    {entry.addedBy !== null ? ` · Added by ${entry.addedBy}` : ''}
                   </p>
                 </div>
                 <Button
