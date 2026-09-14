@@ -1,0 +1,41 @@
+# Force LF line endings on common source/config files so Windows
+# `core.autocrlf=true` doesn't churn the diff on every commit.
+# Override per-file with `* text=auto` for anything not listed below.
+
+* text=auto
+
+# Source
+*.rs        text eol=lf
+*.ts        text eol=lf
+*.tsx       text eol=lf
+*.js        text eol=lf
+*.jsx       text eol=lf
+*.mjs       text eol=lf
+*.cjs       text eol=lf
+
+# Config / docs
+*.json      text eol=lf
+*.toml      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.md        text eol=lf
+
+# Scripts
+*.sh        text eol=lf
+*.bash      text eol=lf
+*.ps1       text eol=lf
+
+# Mark binary explicitly so Git never tries to diff/convert them.
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.webp      binary
+*.ico       binary
+*.mp3       binary
+*.mp4       binary
+*.mkv       binary
+*.otf       binary
+*.ttf       binary
+*.woff      binary
+*.woff2     binary
