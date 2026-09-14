@@ -13,9 +13,25 @@ below.
 
 ## [Unreleased]
 
+### Features
+
+- Added a `/guest` route with a mobile-first library browser for self-hosted deployments. Guests can search songs, browse artists (sidebar on desktop, drawer on mobile), preview a selected track, and add songs to the shared playback queue. The header surfaces the currently-playing song with live status pulled from the `jukebox` WebSocket event.
+- The `/guest` route now requires picking a profile on first access; the chosen profile is remembered in `localStorage` and surfaced as a chip in the header for switching or signing out.
+- Playback queue entries now record the active profile that added them, surfaced as `Added by <profile>` next to each song in the queue sidebar. The added-by attribute is optional and defaults to unknown for entries queued before this change.
+- The `/guest` header now includes a "Queue" button with a count badge that opens a drawer showing the current playback queue (with title, artist, `Added by`, `Next up` marker, and remove).
+- The `/guest` mobile layout tightens the action row (`Artists` / search / `Queue` / profile) with icon-only buttons below the `sm` breakpoint while keeping labeled controls on larger screens, and uses native overflow for the song list and artist drawer/sidebar so mouse-wheel and touch scrolling work reliably.
+- The guest library browser now confirms each queue add with a toast naming the song and artist, so guests get immediate feedback from the `Add to queue` action.
+- The `/guest` preview player now mixes the vocal stem over the instrumental at a reduced level when both stems are available, so guests can recognize the song before queuing it. Songs without stems still play the original mix as before. The two `<audio>` elements are kept in sync on seek, on play/pause, and on song change; a missing vocal file degrades silently to instrumental-only playback.
+- Each `/guest` song row now shows the active profile's best score for that song as a small `Stars` widget next to the artist line. Profiles with no recorded score for a song show nothing in that spot.
+- Guests can now mark songs as favorites per profile: a star toggle button on every row flips the song's favorite state for the currently signed-in profile, with optimistic UI so the icon updates instantly. Favorites are persisted to `ProfileStore` (new `favorites` field) and survive restart; deleting a profile removes its favorites along with its scores.
+- The `/guest` header has a new `Favorites` filter button that restricts the list to the active profile's favorited songs. With the filter on, the empty state guides guests toward starring a song, and pagination is disabled — the filter performs a single large fetch since the result fits in one page.
+- Each `/guest` song row now has a `Lyrics` button that opens a side drawer with the song's lyrics. The drawer reads the cached lyrics file first and falls back to the analysis transcript if no saved lyrics exist, so guests can read along even for unedited songs. Songs without either source show a friendly empty state pointing them to the host's analysis.
+
 ### Fixes
 
 - Analysis status sorting now orders ready songs by the transcript source shown in their status badge.
+- Fixed a `TypeError: Cannot read properties of undefined (reading 'processed_count')` crash in the guest song list when TanStack Query invoked `getNextPageParam` with `undefined` before the first page resolved. The runtime guard is documented as a narrow exception because the upstream type narrows away the `undefined` case.
+- Fixed mouse-wheel scroll not working on the guest song list and artist sidebar/drawer. The Radix `ScrollArea` is replaced with native `overflow-y-auto` (`themed-scrollbar`) — same primitive the desktop library browser uses, with consistent scrollbar styling and reliable wheel/touch handling.
 
 ## [1.2.0] - 2026-09-02
 
