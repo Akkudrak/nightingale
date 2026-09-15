@@ -3,6 +3,7 @@ mod commands;
 mod events;
 mod jukebox;
 mod media;
+mod network_info;
 mod state;
 mod static_files;
 mod ws;
@@ -75,6 +76,7 @@ async fn main() -> Result<(), String> {
 
     let app = Router::new()
         .route("/api/bootstrap", get(bootstrap::handle))
+        .route("/api/network-info", get(network_info::handle))
         .route("/api/cmd/:name", post(commands::handle_cmd))
         .route("/api/asset", get(media::handle_asset))
         .route("/media/:hash/:kind", get(media::handle_hashed))

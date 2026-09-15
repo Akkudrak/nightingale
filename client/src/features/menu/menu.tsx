@@ -10,6 +10,7 @@ import { SelectLanguageDialog } from '@/features/lyrics/components/language';
 import { ClearCacheDialog } from '@/features/menu/components/clear-cache';
 import { DonateDialog } from '@/features/menu/components/donate';
 import { ExitDialog } from '@/features/menu/components/exit';
+import { GuestQrPanel } from '@/features/menu/components/guest-qr-panel';
 import { InfoDialog } from '@/features/menu/components/info';
 import { Sidebar } from '@/features/menu/components/sidebar/sidebar';
 import { useDialog, type DialogMode } from '@/features/menu/hooks/use-dialog';
@@ -34,7 +35,12 @@ export const MenuIndex = () => {
   }
 
   if (typeof meta?.folder === 'string' && meta.folder !== '') {
-    return <SongList />;
+    return (
+      <>
+        <SongList />
+        <GuestQrPanel />
+      </>
+    );
   }
 
   return <EmptySongList />;
