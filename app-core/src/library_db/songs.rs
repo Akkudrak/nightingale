@@ -33,8 +33,8 @@ pub(crate) fn transcript_source_to_db(t: Option<TranscriptSource>) -> Option<Str
 
 pub(crate) const INSERT_SONG_SQL: &str = "\
 INSERT INTO songs (path, file_hash, title, artist, album, duration_secs, album_art_path,
-    is_analyzed, language, transcript_source, is_video, payload)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)";
+    is_analyzed, language, transcript_source, is_video, genre, added_at, payload)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)";
 
 pub(crate) fn insert_song_row_prepared(
     stmt: &mut rusqlite::Statement<'_>,
@@ -57,6 +57,8 @@ pub(crate) fn insert_song_row_prepared(
         song.language,
         transcript_source_to_db(song.transcript_source),
         song.is_video as i32,
+        song.genre,
+        song.added_at,
         payload,
     ])?;
     Ok(())
@@ -98,7 +100,7 @@ pub(crate) fn load_song_path_strings() -> rusqlite::Result<std::collections::Has
     })
 }
 
-pub(super) fn append_songs(songs: &[Song]) -> rusqlite::Result<()> {
+pub(crate) fn append_songs(songs: &[Song]) -> rusqlite::Result<()> {
     if songs.is_empty() {
         return Ok(());
     }

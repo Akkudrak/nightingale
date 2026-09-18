@@ -9,6 +9,7 @@ import { ANALYSIS_QUEUE, SONGS, SONGS_META, MENU } from '@/shared/query-keys';
 import type { AnalysisQueue } from '@/types/AnalysisQueue';
 import type { LoadSongsParams } from '@/types/LoadSongsParams';
 import type { SongsMeta } from '@/types/SongsMeta';
+import type { SongSort } from '@/types/SongSort';
 
 const PAGE_SIZE = 25;
 const DEFAULT_REFETCH_INTERVAL = 2500;
@@ -39,32 +40,83 @@ export const useSongsMeta = () => {
   });
 };
 
+type SongsFilterValues = {
+  search: string;
+  artist: string | null;
+  album: string | null;
+  playlist: string | null;
+  query: string | null;
+  status: string | null;
+  transcript_source: string | null;
+  genre: string | null;
+  first_letter: string | null;
+};
+
+const buildLoadSongsParams = (
+  values: SongsFilterValues,
+  sort: readonly SongSort[],
+  skip: number,
+): LoadSongsParams => ({
+  search: values.search || null,
+  filters: {
+    artist: values.artist,
+    album: values.album,
+    playlist: values.playlist,
+    query: values.query,
+    status: values.status,
+    transcript_source: values.transcript_source,
+    search: null,
+    genre: values.genre,
+    first_letter: values.first_letter,
+  },
+  // First-launch default: most-recently-added first. The user can
+  // override later by setting a config sort; the backend then
+  // ignores this fallback. Spreading `sort` produces a mutable
+  // Array<SongSort> for the `LoadSongsParams.sort` field.
+  sort: sort.length === 0 ? [{ column: 'created_at', direction: 'descending' }] : [...sort],
+  skip,
+  take: PAGE_SIZE,
+});
+
 export const useSongs = () => {
   const { data: config } = useConfig();
   const { search } = useSearch();
-  const { artist, album, playlist, query, status, transcript_source } = useLibraryFilter();
+  const { artist, album, playlist, query, status, transcript_source, genre, first_letter } =
+    useLibraryFilter();
   const sort = config?.song_list_sort ?? [];
 
   return useInfiniteQuery({
-    queryKey: [...SONGS, search, artist, album, playlist, query, status, transcript_source, sort],
-    queryFn: ({ pageParam = 0 }: { pageParam?: number }) => {
-      const params: LoadSongsParams = {
-        search: search || null,
-        filters: {
-          artist: artist ?? null,
-          album: album ?? null,
-          playlist: playlist ?? null,
-          query: query ?? null,
-          status: status ?? null,
-          transcript_source: transcript_source ?? null,
-          search: null,
-        },
-        sort: sort.length === 0 ? null : sort,
-        skip: pageParam,
-        take: PAGE_SIZE,
-      };
-      return loadSongs(params);
-    },
+    queryKey: [
+      ...SONGS,
+      search,
+      artist,
+      album,
+      playlist,
+      query,
+      status,
+      transcript_source,
+      genre,
+      first_letter,
+      sort,
+    ],
+    queryFn: ({ pageParam = 0 }: { pageParam?: number }) =>
+      loadSongs(
+        buildLoadSongsParams(
+          {
+            search,
+            artist: artist ?? null,
+            album: album ?? null,
+            playlist: playlist ?? null,
+            query: query ?? null,
+            status: status ?? null,
+            transcript_source: transcript_source ?? null,
+            genre: genre ?? null,
+            first_letter: first_letter ?? null,
+          },
+          sort,
+          pageParam,
+        ),
+      ),
     getNextPageParam: (lastPage, allPages) => {
       const loaded = allPages.reduce((sum, page) => sum + page.processed.length, 0);
       return loaded < lastPage.processed_count ? loaded : undefined;

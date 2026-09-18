@@ -3,28 +3,24 @@ import type { SongOrigin } from "./SongOrigin";
 import type { TranscriptSource } from "./TranscriptSource";
 import type { UsdxBundle } from "./UsdxBundle";
 
-export type Song = {
-  path: string;
-  file_hash: string;
-  title: string;
-  artist: string;
-  album: string;
-  duration_secs: number;
-  album_art_path: string | null;
-  is_analyzed: boolean;
-  language: string | null;
-  transcript_source: TranscriptSource | null;
-  key: string | null;
-  override_key: string | null;
-  tempo: number;
-  key_offset: number;
-  is_video: boolean;
-  usdx: UsdxBundle | null;
-  origin: SongOrigin;
-  /**
-   * True when the song was made playable from provided LRC without stem
-   * separation: playback uses the original mix and the guide control is
-   * hidden. Defaults to `false` for stem-separated songs.
-   */
-  no_stems: boolean;
-};
+export type Song = { path: string, file_hash: string, title: string, artist: string, album: string, duration_secs: number, album_art_path: string | null, is_analyzed: boolean, language: string | null, transcript_source: TranscriptSource | null, key: string | null, override_key: string | null, tempo: number, key_offset: number, is_video: boolean, usdx: UsdxBundle | null, origin: SongOrigin, 
+/**
+ * True when the song was made playable from provided LRC without stem
+ * separation: playback uses the original mix and the guide control is
+ * hidden. Defaults to `false` for stem-separated songs.
+ */
+no_stems: boolean, 
+/**
+ * Genre tag from the audio file. `None` for untagged files or tags
+ * without a genre. Populated on scan via `lofty::tag::Accessor::genre`;
+ * rows migrated from pre-v3 builds stay `None` until their file is
+ * re-scanned.
+ */
+genre: string | null, 
+/**
+ * Unix seconds at which the row first entered the library, captured by
+ * `Song::build` so the most-recently-added ordering has a real signal.
+ * `0` means "we don't know" (pre-v3 rows and any future row whose build
+ * ran before the clock was set).
+ */
+added_at: bigint, };

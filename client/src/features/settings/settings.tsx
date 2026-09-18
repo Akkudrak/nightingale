@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { invoke } from '@tauri-apps/api/core';
+import { toast } from 'sonner';
 
+import { EXIT_SUPPORTED, exit as exitApp } from '@/bridge/exit';
 import { setFullScreen, isFullScreen as tauriIsFullScreen } from '@/bridge/fullScreen';
 import { clampPlaybackScale } from '@/features/playback/lib/display-scale';
 import {
@@ -30,6 +33,16 @@ import {
   SettingsSelect,
 } from '@/features/settings/components/settings-controls';
 import { useSettingsNavigation } from '@/features/settings/hooks/use-settings-navigation';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/shared/components/ui/alert-dialog';
 import { Button } from '@/shared/components/ui/button';
 import { ButtonGroup } from '@/shared/components/ui/button-group';
 import { Field, FieldGroup } from '@/shared/components/ui/field';
@@ -123,6 +136,14 @@ export const SettingsPage = () => {
   const [vocalThresholdPctInput, setVocalThresholdPct] = useState<number | null>(null);
   const vocalThresholdPct = vocalThresholdPctInput ?? analysis.vocalThreshold;
 
+  // Server/Guest mode confirmation. Selecting "server_guest" from the
+  // playback mode dropdown opens this dialog; only on confirm do we
+  // persist the value and quit the desktop. The dialog is only
+  // reachable when EXIT_SUPPORTED — in the web build the option is
+  // effectively hidden because the Tauri command wouldn't run anyway.
+  const [serverGuestDialogOpen, setServerGuestDialogOpen] = useState(false);
+  const [serverGuestSwitching, setServerGuestSwitching] = useState(false);
+
   const close = (): void => {
     void navigate('/');
   };
@@ -186,6 +207,36 @@ export const SettingsPage = () => {
     setPitchGraphScale(DEFAULTS.pitch_graph_scale);
     setVocalThresholdPct(DEFAULTS.vocal_detection_threshold_pct);
   };
+
+  // Server/Guest mode confirm handler. Order matters:
+  //   1. Persist playback_mode so any future desktop relaunch starts in
+  //      classic (the playback launcher treats non-'session' values as
+  //      classic), and so the value survives a crash between spawn and
+  //      exit.
+  //   2. Spawn server.exe via the Rust command. The command tries to
+  //      auto-open the operator's browser to the guest URL before
+  //      returning it; we surface the URL in a toast as a fallback so
+  //      the operator always has a copy to paste even if the auto-open
+  //      fails. On failure we keep the desktop open and surface the
+  //      error.
+  //   3. Quit the desktop. After this point the dialog is gone.
+  const onConfirmServerGuest = useCallback(async () => {
+    if (serverGuestSwitching) return;
+    setServerGuestSwitching(true);
+    try {
+      mutate({ playback_mode: 'server_guest' });
+      const url = await invoke<string>('enter_server_guest_mode');
+      toast.success(`Server running at ${url}`, {
+        duration: 15000,
+        description: 'Open the URL in your browser, or scan the /guest QR from another device.',
+      });
+      await exitApp();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast.error(`Could not switch to Server/Guest mode: ${message}`);
+      setServerGuestSwitching(false);
+    }
+  }, [mutate, serverGuestSwitching]);
 
   const { footerSegment, getFocusClassName, syncFocusFromElement } = useSettingsNavigation({
     containerRef,
@@ -287,7 +338,7 @@ export const SettingsPage = () => {
               <FieldGroup>
                 <Field>
                   <Label htmlFor="playback-mode-1">Playback mode</Label>
-                  <Hint>Choose whether playback replaces the menu or runs beside it</Hint>
+                  <Hint>Choose whether playback replaces the menu, runs beside it, or switches to Server/Guest mode</Hint>
                   <SettingsSelect
                     id="playback-mode-1"
                     label="Playback mode"
@@ -295,7 +346,16 @@ export const SettingsPage = () => {
                     value={playback.mode}
                     options={PLAYBACK_MODES}
                     triggerClassName={getFocusClassName(NAV.playback.mode)}
-                    onValueChange={(playback_mode) => mutate({ playback_mode })}
+                    onValueChange={(playback_mode) => {
+                      if (playback_mode === 'server_guest') {
+                        // Destructive — needs confirmation. Don't write
+                        // the value yet; the dialog handles both the
+                        // persist and the spawn+exit.
+                        setServerGuestDialogOpen(true);
+                        return;
+                      }
+                      mutate({ playback_mode });
+                    }}
                   />
                 </Field>
 
@@ -502,6 +562,42 @@ export const SettingsPage = () => {
           </Button>
         </div>
       </div>
+
+      {EXIT_SUPPORTED && (
+        <AlertDialog
+          open={serverGuestDialogOpen}
+          onOpenChange={(open) => {
+            if (serverGuestSwitching) return;
+            setServerGuestDialogOpen(open);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Switch to Server/Guest mode?</AlertDialogTitle>
+              <AlertDialogDescription>
+                The Nightingale desktop will close and the self-hosted server will start in the
+                background, reachable from any device on your LAN at{' '}
+                <span className="font-mono text-foreground">http://&lt;this-machine&gt;:8080</span>{' '}
+                (and the <span className="font-mono text-foreground">/guest</span> route for QR
+                check-ins). You can return to the desktop only by relaunching the desktop
+                shortcut.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={serverGuestSwitching}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={serverGuestSwitching}
+                onClick={(event) => {
+                  event.preventDefault();
+                  void onConfirmServerGuest();
+                }}
+              >
+                {serverGuestSwitching ? 'Switching…' : 'Switch to Server/Guest'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 };

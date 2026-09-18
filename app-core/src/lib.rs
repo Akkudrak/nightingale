@@ -1,5 +1,6 @@
 mod analyzer;
 mod cache;
+pub mod catalog_export;
 mod config;
 mod error;
 mod library_db;
@@ -15,6 +16,7 @@ mod profile;
 mod scanner;
 mod secret;
 mod song;
+pub mod song_export;
 mod source;
 mod usdx;
 mod vendor;

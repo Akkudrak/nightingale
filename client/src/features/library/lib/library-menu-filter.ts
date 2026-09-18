@@ -11,6 +11,8 @@ export const EMPTY_LIBRARY_FILTER: LibraryMenuFilters = {
   status: null,
   transcript_source: null,
   search: null,
+  genre: null,
+  first_letter: null,
 };
 
 const HOT_FILTERS: Record<string, LibraryMenuFilters> = {

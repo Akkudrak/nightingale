@@ -1,12 +1,16 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { MinusIcon, SquareIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 import { loadConfig, saveConfig } from '@/bridge/config';
+import { onDeepLinkImportDone } from '@/bridge/deep-link';
 import { isFullScreen as tauriIsFullScreen, setFullScreen } from '@/bridge/fullScreen';
 import { isSessionPlayback } from '@/bridge/playback-session';
 import { isTauri } from '@/bridge/runtime';
 import { minimizeWindow, triggerFrontendReady, windowImmersive } from '@/bridge/window';
+import { SONGS } from '@/shared/query-keys';
 
 export function TauriAppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -35,6 +39,13 @@ export function TauriAppShell({ children }: { children: React.ReactNode }) {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
+
+  // Subscribe to deep-link imports. The Rust handler in
+  // `client/src-tauri/src/deep_link.rs` downloads the bundle, runs the
+  // import pipeline, and emits a single `deep-link-import-done` event
+  // — we surface the result here so the user gets feedback regardless
+  // of which page they're on in the SPA.
+  useDeepLinkImportListener();
 
   if (!isTauri) {
     return children;
@@ -177,4 +188,54 @@ function TitleBar() {
       </div>
     </header>
   );
+}
+
+/**
+ * Subscribes to the Rust-side `deep-link-import-done` event and toasts
+ * the result. Lives in `TauriAppShell` so it mounts only when the
+ * desktop app is running (the web admin has no deep-link emitter).
+ *
+ * On success: success toast + invalidate the `SONGS` query so the
+ * library view refetches. On failure: error toast with the message
+ * surfaced from the Rust handler.
+ */
+function useDeepLinkImportListener(): null {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!isTauri) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+
+    void onDeepLinkImportDone((payload) => {
+      if (cancelled) {
+        return;
+      }
+      if (payload.ok) {
+        const title = payload.title ?? 'Unknown title';
+        const artist = payload.artist ?? 'Unknown artist';
+        toast.success(`Imported "${title}" by ${artist}`);
+        void queryClient.invalidateQueries({ queryKey: SONGS });
+      } else {
+        toast.error(`Couldn't import from deep link: ${payload.error ?? 'unknown error'}`);
+      }
+    }).then((fn) => {
+      if (cancelled) {
+        fn();
+      } else {
+        unlisten = fn;
+      }
+      return undefined;
+    });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [queryClient]);
+
+  return null;
 }

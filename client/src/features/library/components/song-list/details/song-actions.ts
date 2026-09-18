@@ -1,15 +1,21 @@
 import {
   AlignLeftIcon,
+  ArchiveIcon,
   AudioLinesIcon,
   ImageIcon,
   LanguagesIcon,
   MicIcon,
+  PackageOpenIcon,
   PencilLineIcon,
   RefreshCwIcon,
   Trash2Icon,
+  UploadIcon,
   XCircleIcon,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
+import { exportSongCatalogZip } from '@/bridge/catalog-export';
+import { exportSongFull, importSongFull } from '@/bridge/song-export';
 import type { Song } from '@/types/Song';
 
 import type { SongStatusInfo } from '../shared/song-status';
@@ -190,5 +196,88 @@ export function buildActionGroups({
     ]);
   }
 
+  // Export catalog ZIP — visible for every song regardless of analysis
+  // state, since exporting doesn't require stems or transcripts. The
+  // bridge returns `null` when the user cancels the save dialog; we
+  // toast accordingly instead of treating it as a failure.
+  groups.push([
+    {
+      icon: PackageOpenIcon,
+      title: 'Export catalog ZIP',
+      description:
+        'Save this song as a Nightingale-Catalog-compatible ZIP for upload to the catalog admin. Cover art, genre, bpm, year, notes, and credits are not exported — fill them in after import.',
+      onClick: async () => {
+        const result = await exportSongCatalogZip({
+          fileHash: song.file_hash,
+          title: song.title,
+          artist: song.artist,
+        });
+        if (result === null) {
+          toast.info(`Export cancelled for "${song.title}"`);
+          return;
+        }
+        const kb = (result.bytes / 1024).toFixed(0);
+        toast.success(`Exported ${kb} KB to ${result.path}`);
+      },
+    },
+  ]);
+
+  // Full-song export — bundles audio + cover + every analysis
+  // artifact (transcript, stems, lyrics, key/tempo variants, playable
+  // video) so an import on a fresh install skips the AI re-analysis
+  // pipeline. Only available for LocalFile songs; the Rust side rejects
+  // remote-origin exports with a clear error.
+  groups.push(fullSongExportGroup(song));
+
+  // Import is global — operates on a ZIP picked from disk, not the
+  // current song — so it lives in its own group at the end.
+  groups.push(importSongGroup());
+
   return groups;
+}
+
+function fullSongExportGroup(song: Song): ActionItemProps[] {
+  if (song.origin.kind !== 'local_file') {
+    return [];
+  }
+  return [
+    {
+      icon: ArchiveIcon,
+      title: 'Export full song',
+      description:
+        'Save audio + cover + transcript + stems + lyrics + variants + metadata as a single ZIP. Importing such a ZIP on a fresh install skips the AI re-analysis pipeline.',
+      onClick: async () => {
+        const result = await exportSongFull({
+          fileHash: song.file_hash,
+          title: song.title,
+          artist: song.artist,
+        });
+        if (result === null) {
+          toast.info(`Export cancelled for "${song.title}"`);
+          return;
+        }
+        const mb = (result.bytes / (1024 * 1024)).toFixed(1);
+        toast.success(`Exported ${mb} MB to ${result.path}`);
+      },
+    },
+  ];
+}
+
+function importSongGroup(): ActionItemProps[] {
+  return [
+    {
+      icon: UploadIcon,
+      title: 'Import song ZIP',
+      description:
+        'Restore a previously exported full-song ZIP into this Nightingale instance without re-running AI analysis.',
+      onClick: async () => {
+        const result = await importSongFull();
+        if (result === null) {
+          toast.info('Import cancelled');
+          return;
+        }
+        toast.success(`Imported "${result.title}" — ${result.artist} to ${result.importedPath}`);
+      },
+    },
+  ];
 }

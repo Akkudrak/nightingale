@@ -11,7 +11,7 @@ GitHub Release body. If a section is missing the release is still created
 with a fallback body, but ideally every tagged version has its own entry
 below.
 
-## [Unreleased]
+## [1.3.0] - 2026-09-17
 
 ### Features
 
@@ -26,6 +26,7 @@ below.
 - Guests can now mark songs as favorites per profile: a star toggle button on every row flips the song's favorite state for the currently signed-in profile, with optimistic UI so the icon updates instantly. Favorites are persisted to `ProfileStore` (new `favorites` field) and survive restart; deleting a profile removes its favorites along with its scores.
 - The `/guest` header has a new `Favorites` filter button that restricts the list to the active profile's favorited songs. With the filter on, the empty state guides guests toward starring a song, and pagination is disabled — the filter performs a single large fetch since the result fits in one page.
 - Each `/guest` song row now has a `Lyrics` button that opens a side drawer with the song's lyrics. The drawer reads the cached lyrics file first and falls back to the analysis transcript if no saved lyrics exist, so guests can read along even for unedited songs. Songs without either source show a friendly empty state pointing them to the host's analysis.
+- Server/Guest mode in desktop Settings: a third option in **Playback mode** that closes the desktop and launches the bundled server (`server.exe` on Windows, `server` on macOS/Linux) bound to `0.0.0.0:8080` with the same data folder and library source as the desktop, so guests on the LAN can connect immediately. After spawning, the operator's default browser auto-opens to `http://localhost:8080/guest` so the switch is visible end-to-end. The desktop exit is gated behind an explicit confirmation dialog, and `server.exe` is launched with `CREATE_NO_WINDOW` on Windows so no console flashes. There is no way back from the web side — only relaunching the desktop shortcut returns to the GUI, which matches the LAN-party/event use case.
 
 ### Fixes
 

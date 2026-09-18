@@ -11,9 +11,17 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use blake3::Hasher;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs::File, io::Read};
 
 use crate::{cache::CacheDir, error::NightingaleError, usdx::UsdxBundle};
+
+fn now_unix_secs() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -121,6 +129,18 @@ pub struct Song {
     /// hidden. Defaults to `false` for stem-separated songs.
     #[serde(default)]
     pub no_stems: bool,
+    /// Genre tag from the audio file. `None` for untagged files or tags
+    /// without a genre. Populated on scan via `lofty::tag::Accessor::genre`;
+    /// rows migrated from pre-v3 builds stay `None` until their file is
+    /// re-scanned.
+    #[serde(default)]
+    pub genre: Option<String>,
+    /// Unix seconds at which the row first entered the library, captured by
+    /// `Song::build` so the most-recently-added ordering has a real signal.
+    /// `0` means "we don't know" (pre-v3 rows and any future row whose build
+    /// ran before the clock was set).
+    #[serde(default)]
+    pub added_at: i64,
 }
 
 fn default_tempo() -> f64 {
@@ -144,6 +164,7 @@ struct FileDerivedFields {
     title: String,
     artist: String,
     album: String,
+    genre: Option<String>,
     duration_secs: f64,
     album_art_path: Option<PathBuf>,
 }
@@ -153,7 +174,7 @@ fn try_read_file_derived_fields(
     is_video: bool,
     cache: &CacheDir,
 ) -> Result<FileDerivedFields, NightingaleError> {
-    let (mut title, mut artist, mut album, duration_secs, cover_bytes) = if is_video {
+    let (mut title, mut artist, mut album, genre, duration_secs, cover_bytes) = if is_video {
         read_video_metadata(path)?
     } else {
         read_metadata(path)?
@@ -172,6 +193,7 @@ fn try_read_file_derived_fields(
     if album.is_empty() {
         album = "Unknown Album".to_string();
     }
+    let genre = if genre.is_empty() { None } else { Some(genre) };
 
     // Content-addressed: writes only if a cover with this exact hash isn't
     // already cached, so a refresh after the physical cover file was
@@ -192,6 +214,7 @@ fn try_read_file_derived_fields(
         title,
         artist,
         album,
+        genre,
         duration_secs,
         album_art_path,
     })
@@ -206,6 +229,7 @@ fn read_file_derived_fields(path: &Path, is_video: bool, cache: &CacheDir) -> Fi
             .to_string(),
         artist: "Unknown Artist".to_string(),
         album: "Unknown Album".to_string(),
+        genre: None,
         duration_secs: 0.0,
         album_art_path: None,
     })
@@ -228,6 +252,7 @@ impl Song {
             title,
             artist,
             album,
+            genre,
             duration_secs,
             album_art_path,
         } = try_read_file_derived_fields(&self.path, self.is_video, cache)?;
@@ -235,6 +260,7 @@ impl Song {
         self.title = title;
         self.artist = artist;
         self.album = album;
+        self.genre = genre;
         self.duration_secs = duration_secs;
         self.album_art_path = album_art_path;
         Ok(())
@@ -284,6 +310,7 @@ pub(crate) fn build_song(
         title,
         artist,
         album,
+        genre,
         duration_secs,
         album_art_path,
     } = read_file_derived_fields(path, is_video, cache);
@@ -307,6 +334,8 @@ pub(crate) fn build_song(
         usdx: None,
         origin: SongOrigin::LocalFile,
         no_stems,
+        genre,
+        added_at: now_unix_secs(),
     })
 }
 
@@ -351,7 +380,7 @@ pub(crate) fn read_transcript_meta(cache: &CacheDir, hash: &str) -> TranscriptMe
     }
 }
 
-type MediaMetadata = (String, String, String, f64, Option<Vec<u8>>);
+type MediaMetadata = (String, String, String, String, f64, Option<Vec<u8>>);
 
 fn read_metadata(path: &Path) -> Result<MediaMetadata, NightingaleError> {
     let tagged = lofty::read_from_path(path)
@@ -367,6 +396,7 @@ fn read_metadata(path: &Path) -> Result<MediaMetadata, NightingaleError> {
                 String::new(),
                 String::new(),
                 String::new(),
+                String::new(),
                 duration_secs,
                 None,
             ));
@@ -376,10 +406,11 @@ fn read_metadata(path: &Path) -> Result<MediaMetadata, NightingaleError> {
     let title = tag.title().map(|s| s.to_string()).unwrap_or_default();
     let artist = tag.artist().map(|s| s.to_string()).unwrap_or_default();
     let album = tag.album().map(|s| s.to_string()).unwrap_or_default();
+    let genre = tag.genre().map(|s| s.to_string()).unwrap_or_default();
 
     let album_art = tag.pictures().first().map(|pic| pic.data().to_vec());
 
-    Ok((title, artist, album, duration_secs, album_art))
+    Ok((title, artist, album, genre, duration_secs, album_art))
 }
 
 fn read_video_metadata(path: &Path) -> Result<MediaMetadata, NightingaleError> {
@@ -396,6 +427,7 @@ fn read_video_metadata(path: &Path) -> Result<MediaMetadata, NightingaleError> {
     let mut title = String::new();
     let mut artist = String::new();
     let mut album = String::new();
+    let mut genre = String::new();
     let mut duration_secs = 0.0;
     let mut found_duration = false;
     let mut reading_audio_stream = false;
@@ -424,6 +456,11 @@ fn read_video_metadata(path: &Path) -> Result<MediaMetadata, NightingaleError> {
         if let Some(val) = strip_meta_tag(trimmed, "album") {
             album = val;
         }
+        if genre.is_empty()
+            && let Some(val) = strip_meta_tag(trimmed, "genre")
+        {
+            genre = val;
+        }
     }
 
     if !found_duration {
@@ -435,7 +472,7 @@ fn read_video_metadata(path: &Path) -> Result<MediaMetadata, NightingaleError> {
 
     let album_art = extract_video_thumbnail(&ffmpeg, path);
 
-    Ok((title, artist, album, duration_secs, album_art))
+    Ok((title, artist, album, genre, duration_secs, album_art))
 }
 
 fn extract_video_thumbnail(ffmpeg: &Path, video_path: &Path) -> Option<Vec<u8>> {

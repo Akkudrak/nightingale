@@ -213,6 +213,29 @@ fn append_structural_filters(
         where_parts.push("s.transcript_source = ?".to_string());
         bind_strings.push(source.to_string());
     }
+    if let Some(g) = filters.genre.as_deref().filter(|s| !s.is_empty()) {
+        // `s.genre IS NULL` is the bucket the sectioned view labels
+        // "Sin género"; the user's typed text matches the populated bucket
+        // exactly. A `None` filter is the no-op case.
+        if g == "__none__" {
+            where_parts.push("s.genre IS NULL".to_string());
+        } else {
+            where_parts.push("s.genre = ?".to_string());
+            bind_strings.push(g.to_string());
+        }
+    }
+    if let Some(letter) = filters.first_letter.as_deref().filter(|s| !s.is_empty()) {
+        // `#` is the sentinel for non-letter starts (digits, punctuation,
+        // whitespace, non-ASCII first bytes). SQLite's `GLOB` is ASCII-only
+        // by design, which is what we want -- the A-Z buttons already match
+        // the rest.
+        if letter == "#" {
+            where_parts.push("s.artist NOT GLOB '[A-Za-z]*'".to_string());
+        } else if letter.len() == 1 {
+            where_parts.push("LOWER(substr(s.artist, 1, 1)) = ?".to_string());
+            bind_strings.push(letter.to_ascii_lowercase().to_string());
+        }
+    }
     if let Some(words) = search.and_then(search_words_from_query) {
         let (where_sql, mut search_binds) = songs_where_like_words(&words);
         where_parts.push(format!("({where_sql})"));
@@ -270,6 +293,7 @@ fn sort_expression(column: SongSortColumn) -> &'static str {
              WHEN s.transcript_source = 'usdx' THEN 43 \
              ELSE 44 END"
         }
+        SongSortColumn::CreatedAt => "s.added_at",
     }
 }
 

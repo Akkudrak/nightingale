@@ -25,6 +25,7 @@ import { QueueSidebar } from './queue-sidebar';
 import { songKey } from './shared/song-key';
 import { SongDetailsSidebar } from './song-details-sidebar';
 import type { SongItemProps } from './types';
+import { SongGenreSectioned } from './views/song-genre-sectioned';
 import { SongGrid } from './views/song-grid';
 import { SongTable } from './views/song-table';
 
@@ -46,6 +47,16 @@ const hasFilters = (values: readonly unknown[]): boolean =>
 
 const songListSort = (config: AppConfig | undefined): readonly SongSort[] =>
   config?.song_list_sort ?? [];
+
+const viewFromConfig = (raw: string | null | undefined): SongListView => {
+  if (raw === 'grid') {
+    return 'grid';
+  }
+  if (raw === 'grouped') {
+    return 'grouped';
+  }
+  return 'table';
+};
 
 const nextSongSort = (sorts: readonly SongSort[], column: SongSortColumn): SongSort[] | null => {
   const sortIndex = sorts.findIndex((sort) => sort.column === column);
@@ -75,6 +86,24 @@ const EmptySongs = ({ filtered }: { filtered: boolean }) => (
   </Empty>
 );
 
+const renderSongs = (view: SongListView, props: SongCollectionProps) => {
+  if (view === 'table') {
+    return (
+      <SongTable
+        songs={props.songs}
+        sort={props.sort}
+        sortingDisabled={props.sortingDisabled}
+        onSort={props.onSort}
+        getItemProps={props.getItemProps}
+      />
+    );
+  }
+  if (view === 'grouped') {
+    return <SongGenreSectioned songs={props.songs} getItemProps={props.getItemProps} />;
+  }
+  return <SongGrid songs={props.songs} getItemProps={props.getItemProps} />;
+};
+
 const SongCollection = ({
   songs,
   view,
@@ -97,17 +126,18 @@ const SongCollection = ({
       data-song-layout={view}
       className="themed-scrollbar song-table-shell min-h-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto pb-[max(0.75rem,env(safe-area-inset-bottom))]"
     >
-      {view === 'table' ? (
-        <SongTable
-          songs={songs}
-          sort={sort}
-          sortingDisabled={sortingDisabled}
-          onSort={onSort}
-          getItemProps={getItemProps}
-        />
-      ) : (
-        <SongGrid songs={songs} getItemProps={getItemProps} />
-      )}
+      {renderSongs(view, {
+        songs,
+        view,
+        sort,
+        sortingDisabled,
+        loading,
+        hasActiveFilter,
+        getItemProps,
+        setScrollContainer,
+        sentinelRef,
+        onSort,
+      })}
       <div ref={sentinelRef} className="h-1" aria-hidden="true" />
     </div>
   );
@@ -163,7 +193,7 @@ export const SongList = () => {
   const { artist, album, playlist, query, status, transcript_source } = useLibraryFilter();
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useSongs();
   const [queueOpen, setQueueOpen] = useState(false);
-  const view: SongListView = config?.song_list_view === 'grid' ? 'grid' : 'table';
+  const view: SongListView = viewFromConfig(config?.song_list_view);
   const sort = songListSort(config);
   const songs = useMemo(() => data?.pages.flatMap((page) => page.processed) ?? [], [data]);
   const selectedKey = selectedSong ? songKey(selectedSong) : null;

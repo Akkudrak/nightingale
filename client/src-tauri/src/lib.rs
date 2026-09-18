@@ -1,6 +1,8 @@
 mod analyzer;
 mod cache;
+mod catalog_export;
 mod config;
+mod deep_link;
 mod logging;
 mod lyrics;
 mod microphones;
@@ -9,6 +11,7 @@ mod playback_queue;
 mod playback_session;
 mod profile;
 mod scanner;
+mod song_export;
 mod vendor;
 
 use analyzer::{
@@ -18,6 +21,7 @@ use analyzer::{
 use app_core::{AppConfig, PlaybackQueue, PlaybackSessionStore, SongsStore};
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use cache::{calculate_cache_stats, clear_all, clear_models_command, clear_videos_command};
+use catalog_export::export_song_catalog_zip;
 use config::{load_config, save_config};
 use lyrics::{apply_timed_lyrics, load_lyrics, provide_lrc, save_lyrics, search_lrclib_lyrics};
 use microphones::{list_microphones, set_monitor_gain, start_mic_capture, stop_mic_capture};
@@ -40,7 +44,9 @@ use scanner::{
     navidrome_ping, plex_begin_pin, plex_manual_login, plex_ping, plex_poll_pin,
     set_library_source, trigger_scan,
 };
+use song_export::{export_song_full, import_song_full};
 use tauri::{Manager, RunEvent, WebviewWindowBuilder};
+use tauri_plugin_opener::OpenerExt;
 use vendor::{is_ready, trigger_setup};
 
 #[tauri::command]
@@ -85,6 +91,100 @@ fn minimize_window(window: tauri::WebviewWindow) -> Result<(), String> {
     window.minimize().map_err(|e| e.to_string())
 }
 
+/// Switch from desktop mode to Server/Guest mode: spawn the sibling
+/// `server.exe` (or `server` on macOS/Linux) with the same data folder
+/// the desktop was using, then quit the Tauri process.
+///
+/// Invoked by Settings → Playback → "Server/Guest mode" after an
+/// explicit confirmation dialog on the JS side. The reverse trip —
+/// desktop from the web — is intentionally unsupported: only the
+/// desktop shortcut can bring the GUI back. That's why the JS caller
+/// never offers a "return to desktop" button in server mode.
+///
+/// Resolution order for the server binary path:
+///   1. `current_exe().parent() / "server[.exe]"` — Tauri's bundler
+///      drops `externalBin` siblings next to the main executable, so
+///      this is the install-time location. The release workflow
+///      (`.github/workflows/release.yml`) builds the server crate in
+///      the same matrix and stages it at
+///      `client/src-tauri/binaries/server-<target>[.exe]` so the
+///      bundler picks it up.
+///   2. A clear error string back to the JS side if the file is
+///      missing — the dialog surfaces it via toast.error and the
+///      desktop stays open.
+///
+/// Library handling: we only pass `--library <path>` when the current
+/// `library_source` is the `Folder` variant. For Jellyfin / Navidrome
+/// / Plex the server's `pin_folder_library` would unconditionally
+/// overwrite the configured source with a folder, so passing
+/// `--library` would silently flip the user's setup. See
+/// `client/src-server/src/main.rs::pin_folder_library` for the
+/// overwrite semantics.
+///
+/// Returns the URL the operator should visit. The JS caller displays
+/// it in a toast before exiting so the operator always has a copy
+/// even when the auto-open-browser call below fails.
+#[tauri::command]
+fn enter_server_guest_mode(app: tauri::AppHandle) -> Result<String, String> {
+    let config = AppConfig::load();
+    let data_path = config.effective_data_path();
+
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let bin_name = if cfg!(windows) { "server.exe" } else { "server" };
+    let server = exe.with_file_name(bin_name);
+    if !server.exists() {
+        return Err(format!(
+            "Server binary not found at {}. Reinstall Nightingale or copy {} next to Nightingale.exe.",
+            server.display(),
+            bin_name,
+        ));
+    }
+
+    let mut cmd = std::process::Command::new(&server);
+    cmd.arg("--bind").arg("0.0.0.0:8080").arg("--data").arg(&data_path);
+
+    // Mirror the CREATE_NO_WINDOW pattern from
+    // `app-core/src/vendor.rs::silent_command` so server.exe doesn't
+    // pop a console window on Windows. `silent_command` itself is
+    // `pub(crate)`; the duplication is small (one cfg-gated block).
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    if let Some(app_core::LibrarySource::Folder { path }) = &config.library_source {
+        cmd.arg("--library").arg(path);
+    }
+
+    cmd.spawn()
+        .map_err(|e| format!("Failed to launch server: {}", e))?;
+
+    // Give the server a moment to bind 0.0.0.0:8080 before the browser
+    // tries to connect. 500ms is a guess — `cmd.spawn()` returns once
+    // the child process is created, but the bind/listen loop in the
+    // server crate is async and not instant. A small sleep is cheaper
+    // than polling the port and good enough for a localhost open.
+    std::thread::sleep(std::time::Duration::from_millis(500));
+
+    let url = "http://localhost:8080/guest";
+
+    // Auto-open the operator's browser to the guest landing page so the
+    // switch is visible end-to-end — the server is serving and the URL
+    // is reachable from a normal browser. Any error here is non-fatal:
+    // the JS side shows the URL in a toast as a fallback, and the
+    // JS-side `exitApp()` call still runs afterwards. We deliberately
+    // do NOT call `app.exit(0)` here — doing so would race the WebView
+    // teardown against the toast render, so the operator might never
+    // see the URL.
+    if let Err(error) = app.opener().open_url(url, None::<&str>) {
+        eprintln!("[server-guest] failed to open browser: {error}");
+    }
+
+    Ok(url.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     logging::init();
@@ -96,11 +196,27 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            // The `deep-link` feature on `tauri_plugin_single_instance`
+            // auto-forwards argv on Windows/Linux to the deep-link
+            // plugin's `on_open_url` handler, so we don't have to do
+            // any parsing here. On macOS this closure never fires
+            // (the OS uses Apple Events). We still bring the window
+            // forward defensively when a second instance is spawned
+            // with a URL on argv before our deep-link subscription
+            // lands.
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_deep_link::init())
         .invoke_handler(tauri::generate_handler![
             // Init
             frontend_ready,
             window_immersive,
             minimize_window,
+            enter_server_guest_mode,
             // Config
             load_config,
             save_config,
@@ -171,7 +287,12 @@ pub fn run() {
             stop_mic_capture,
             // Vendor
             is_ready,
-            trigger_setup
+            trigger_setup,
+            // Catalog export
+            export_song_catalog_zip,
+            // Full-song export/import (audio + cache + cover, no re-analysis)
+            export_song_full,
+            import_song_full
         ])
         .setup(|app| {
             let _ = dotenvy::dotenv();
@@ -230,6 +351,12 @@ pub fn run() {
             if config.fullscreen == Some(true) {
                 let _ = window.set_simple_fullscreen(true);
             }
+
+            // Wire the `nightingale://catalog/v1/import?p=…` deep-link
+            // handler. The plugin re-emits the URL through `on_open_url`
+            // on warm starts; `get_current()` covers the cold-start case
+            // where the OS spawns a fresh process with the URL on argv.
+            deep_link::register(&app.handle());
 
             Ok(())
         })

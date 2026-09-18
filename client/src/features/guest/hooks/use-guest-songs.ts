@@ -1,7 +1,7 @@
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 
 import { loadSongs } from '@/bridge/songs';
-import type { LibraryMenuFilters } from '@/types/LibraryMenuFilters';
+import { EMPTY_LIBRARY_FILTER } from '@/features/library/lib/library-menu-filter';
 import type { LoadSongsParams } from '@/types/LoadSongsParams';
 import type { SongsStore } from '@/types/SongsStore';
 
@@ -9,16 +9,6 @@ const PAGE_SIZE = 25;
 // Favorites mode is meant to fit all favorites in a single fetch so the
 // intersection-observer "load more" mechanic gets disabled in the consumer.
 const FAVORITES_TAKE = 10_000;
-
-const EMPTY_FILTERS: LibraryMenuFilters = {
-  artist: null,
-  album: null,
-  playlist: null,
-  query: null,
-  status: null,
-  transcript_source: null,
-  search: null,
-};
 
 const EMPTY_DATA: InfiniteData<SongsStore> = { pages: [], pageParams: [] };
 
@@ -35,7 +25,7 @@ export const useGuestSongs = ({ search, artist, favoritesOnly }: Args) =>
       const trimmed = search.trim();
       const params: LoadSongsParams = {
         search: trimmed === '' ? null : trimmed,
-        filters: { ...EMPTY_FILTERS, artist: artist ?? null },
+        filters: { ...EMPTY_LIBRARY_FILTER, artist: artist ?? null },
         sort: null,
         skip: favoritesOnly ? 0 : pageParam,
         take: favoritesOnly ? FAVORITES_TAKE : PAGE_SIZE,

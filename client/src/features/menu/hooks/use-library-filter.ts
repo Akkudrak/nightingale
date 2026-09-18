@@ -16,6 +16,8 @@ export const useLibraryFilter = () => {
     status: filter.status,
     transcript_source: filter.transcript_source,
     search: filter.search,
+    genre: filter.genre,
+    first_letter: filter.first_letter,
     setLibraryFilter,
   };
 };

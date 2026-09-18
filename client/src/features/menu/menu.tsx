@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router';
 
 import { EXIT_SUPPORTED } from '@/bridge/exit';
+import { isTauri } from '@/bridge/runtime';
 import { EmptySongList } from '@/features/library/components/song-list/empty-song-list';
 import { SongList } from '@/features/library/components/song-list/song-list';
 import { useSongsMeta } from '@/features/library/queries/use-songs';
@@ -38,7 +39,7 @@ export const MenuIndex = () => {
     return (
       <>
         <SongList />
-        <GuestQrPanel />
+        {!isTauri && <GuestQrPanel />}
       </>
     );
   }

@@ -39,6 +39,7 @@ This fork turns Nightingale's self-hosted web mode into a first-class party-nigh
 Highlights:
 
 - 🪩 **Party Mode** — the Windows self-hosted server (`server.exe`) and the `/guest` page are now the headline features. Host runs once, guests connect by URL.
+- 🚀 **Server/Guest mode from desktop Settings** — a third option under **Playback mode** that closes the desktop, spawns the bundled `server.exe` on `0.0.0.0:8080` with the same data folder and library as the desktop, and auto-opens your browser to `/guest`. No command line, no second download — the desktop installer now bundles the server binary. The switch is gated behind an explicit confirmation dialog, and there is no way back from the web side: only relaunching the desktop shortcut returns to the GUI.
 - 🪟 **Portable Windows host binary** — single `.exe` for `x86_64-pc-windows-msvc`, embeds the React client via `rust-embed`, downloads ffmpeg + Python + ML models on first launch.
 - 📱 **Self-service guest flow** — profile gate, library browse, search, artist drawer/sidebar, preview, queue, lyrics, favorites, scores — all from any modern browser.
 - ⭐ **Per-profile favorites** — star toggle on every row with optimistic UI; new `Favorites` filter button in the header; persists to `ProfileStore`.
@@ -84,7 +85,7 @@ The host's job is to keep the night running. Every guest device keeps the night 
 
 💿 **Navidrome** — connect to Navidrome for audio libraries. Login details are kept encrypted on disk.
 
-🪩 **Party Mode host (Windows / Linux / Docker)** — run the included `server` binary anywhere on your network and open `/guest` from phones, laptops, tablets, and TVs. Source doesn't matter — folder, Plex, Jellyfin, Navidrome, USDX — the guest page sees the same library. See [docs/self-hosted](site/docs/src/self-hosted.md). Also runs in [Docker](site/docs/src/docker.md) (CPU or CUDA/GPU).
+🪩 **Party Mode host (Windows / Linux / Docker)** — run the included `server` binary anywhere on your network and open `/guest` from phones, laptops, tablets, and TVs. Source doesn't matter — folder, Plex, Jellyfin, Navidrome, USDX — the guest page sees the same library. On Windows the desktop installer now bundles `server.exe` next to `Nightingale.exe`, and **Settings → Playback → Server/Guest mode** swaps the desktop for the host in one click (auto-opens your browser to `/guest`). See [docs/self-hosted](site/docs/src/self-hosted.md). Also runs in [Docker](site/docs/src/docker.md) (CPU or CUDA/GPU).
 
 🧭 **Sidebar + library filters** — browse by quick filters, metadata cleanup buckets, artists, albums, and existing playlists from Plex, Jellyfin, Navidrome, or folder-library `.m3u` / `.m3u8` / `.pls` files. **Analyze All** and optional auto-analysis help queue your library faster, and the sidebar/song list remember scroll position when you come back.
 
@@ -133,6 +134,10 @@ The host's job is to keep the night running. Every guest device keeps the night 
 ## Quick start
 
 ### Party Mode (Windows)
+
+**From the desktop app (one click, recommended):** launch Nightingale, open **Settings → Playback → Server/Guest mode**, confirm the dialog, and your browser auto-opens to `/guest`. The desktop quits, the bundled `server.exe` runs in the background, and any device on the LAN can connect. To return to the desktop, relaunch the desktop shortcut.
+
+**Standalone (no desktop app required):**
 
 1. Download the latest `nightingale-server-windows-x86_64.zip` from the [Releases](../../releases) page and extract it anywhere (e.g. `C:\Nightingale`).
 2. Double-click `server.exe`. Windows SmartScreen will ask once; click **More info → Run anyway**.
@@ -302,7 +307,7 @@ The server binary embeds the React client bundle via `rust-embed`, so the SPA (a
 | Linux aarch64  | ✅          | ✅                    |
 | macOS ARM      | ✅          | ✅                    |
 | macOS Intel    | ✅          | ✅                    |
-| Windows x86_64 | ✅          | ✅ (new in v1.3)      |
+| Windows x86_64 | ✅          | ✅ (new in v1.3) — also switchable from desktop Settings |
 
 ## Releasing
 

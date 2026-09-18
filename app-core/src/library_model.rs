@@ -12,6 +12,7 @@ pub enum SongSortColumn {
     Album,
     Duration,
     Status,
+    CreatedAt,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, TS)]
@@ -42,6 +43,15 @@ pub struct LibraryMenuFilters {
     pub transcript_source: Option<String>,
     #[serde(default)]
     pub search: Option<String>,
+    /// User-facing browse: matches `songs.genre` exactly. `None` and `Some("")`
+    /// both mean "no genre filter".
+    #[serde(default)]
+    pub genre: Option<String>,
+    /// User-facing browse: `A`-`Z` filters artists by first letter, `#` is
+    /// the sentinel for non-letter starts (digits, punctuation,
+    /// whitespace). `None` means "no letter filter".
+    #[serde(default)]
+    pub first_letter: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

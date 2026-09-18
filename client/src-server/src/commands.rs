@@ -400,6 +400,70 @@ async fn dispatch(state: AppState, name: &str, payload: Value) -> CmdResult {
         "shift_key" => shift_key_cmd(events, payload),
         "shift_tempo" => shift_tempo_cmd(events, payload),
 
+        // ── Catalog export ────────────────────────────────────────────────
+        // Mirrors the Tauri command of the same name; reachable from a
+        // headless deployment via POST /api/cmd/export_song_catalog_zip.
+        // Both payloads are required: file_hash (DB lookup) and
+        // output_path (server-side filesystem).
+        "export_song_catalog_zip" => {
+            #[derive(Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                file_hash: String,
+                output_path: String,
+            }
+            let args: Args = deserialize(payload)?;
+            let bytes = app_core::catalog_export::export_song_to_path(
+                &args.file_hash,
+                std::path::Path::new(&args.output_path),
+            )
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+            Ok(json!({ "path": args.output_path, "bytes": bytes }))
+        }
+
+        // ── Full-song export/import ─────────────────────────────────────
+        // Carries audio + cover + every cache file (transcript, stems,
+        // lyrics, variants, playable video) + metadata.json so an
+        // import on a fresh install skips the AI re-analysis pipeline.
+        "export_song_full" => {
+            #[derive(Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                file_hash: String,
+                output_path: String,
+            }
+            let args: Args = deserialize(payload)?;
+            let bytes = app_core::song_export::export_song_full_to_path(
+                &args.file_hash,
+                std::path::Path::new(&args.output_path),
+            )
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+            Ok(json!({ "path": args.output_path, "bytes": bytes }))
+        }
+        "import_song_full" => {
+            #[derive(Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                zip_path: String,
+                #[serde(default)]
+                target_library_dir: Option<String>,
+            }
+            let args: Args = deserialize(payload)?;
+            let result = app_core::song_export::import_song_full_from_path(
+                std::path::Path::new(&args.zip_path),
+                args.target_library_dir
+                    .as_deref()
+                    .map(std::path::Path::new),
+            )
+            .map_err(|e| ApiError::internal(e.to_string()))?;
+            Ok(json!({
+                "fileHash": result.song.file_hash,
+                "title": result.song.title,
+                "artist": result.song.artist,
+                "importedPath": result.imported_path.to_string_lossy(),
+            }))
+        }
+
         // ── Lyrics ───────────────────────────────────────────────────────
         "load_lyrics" => {
             let args: FileHashArgs = deserialize(payload)?;

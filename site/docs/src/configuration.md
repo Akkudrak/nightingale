@@ -57,7 +57,7 @@ Toggle between dark and light themes from the sidebar. The theme preference is s
 | `mic_monitor_gain` | Live monitor gain when mic monitoring is on. Range `0.0`–`2.0` (slider shown as 0–200%). Configs from older builds that used `mic_mirror_gain` are read transparently and migrated on next save. |
 | `mic_latency_compensation_sec` | Speaker-to-mic latency compensation for pitch scoring. Tune manually or use the Settings latency test. |
 | `mic_active` / `mic_monitoring` / `preferred_mic` | Microphone state and the device chosen for scoring + monitoring. Older `mic_mirroring` configs are accepted and migrated on next save. |
-| `playback_mode` | `classic` replaces the menu with playback; `session` opens playback in a dedicated desktop window or browser tab so the menu can manage the queue. |
+| `playback_mode` | `classic` replaces the menu with playback; `session` opens playback in a dedicated desktop window or browser tab so the menu can manage the queue; `server_guest` (desktop only) closes the desktop and launches the bundled `server.exe` on `0.0.0.0:8080` with the same data folder and library, then auto-opens your browser to `/guest` — return to the desktop only by relaunching the desktop shortcut. |
 | `lyrics_vertical_position` / `lyrics_horizontal_position` | Playback lyrics placement. Vertical: `top`, `center`, `bottom`; horizontal: `left`, `center`, `right`. |
 | `lyrics_scale` / `pitch_graph_scale` | Independent playback display scales from `0.5` to `2.5` (50–250%, default `1.0`). |
 | `auto_analyze` | When `true`, scans automatically queue every unanalyzed song after they finish. |

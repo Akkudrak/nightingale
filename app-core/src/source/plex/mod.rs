@@ -232,6 +232,8 @@ impl PlexSource {
                 cover_tag,
             },
             no_stems: false,
+            genre: None,
+            added_at: 0,
         })
     }
 

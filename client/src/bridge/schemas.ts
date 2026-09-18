@@ -80,7 +80,7 @@ export const appConfigSchema: z.ZodType<AppConfig> = z.object({
   song_list_sort: z
     .array(
       z.object({
-        column: z.enum(['title', 'artist', 'album', 'duration', 'status']),
+        column: z.enum(['title', 'artist', 'album', 'duration', 'status', 'created_at']),
         direction: z.enum(['ascending', 'descending']),
       }),
     )
@@ -147,6 +147,12 @@ export const songSchema: z.ZodType<Song> = z.object({
   usdx: usdxBundleSchema.nullable(),
   origin: songOriginSchema,
   no_stems: z.boolean(),
+  // ts-rs declares i64 as `bigint`, but the wire format is a JSON number
+  // (Tauri's invoke parses it as a regular JS number). `z.coerce.bigint()`
+  // converts to BigInt at parse time so the parsed value matches the
+  // declared `bigint` type.
+  genre: nullableString,
+  added_at: z.coerce.bigint(),
 });
 
 export const webBootstrapSchema = z.object({

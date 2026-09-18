@@ -14,6 +14,7 @@ import {
   songsByFilter,
   songsByHashes,
 } from '@/bridge/analysis';
+import { EMPTY_LIBRARY_FILTER } from '@/features/library/lib/library-menu-filter';
 import { useLibraryFilter } from '@/features/menu/hooks/use-library-filter';
 import { useSearch } from '@/features/menu/hooks/use-search';
 import { ANALYSIS_QUEUE, MENU, SONGS, SONGS_META } from '@/shared/query-keys';
@@ -45,6 +46,7 @@ export const useAnalysis = () => {
 
   return useMemo(() => {
     const currentFilters = (): LibraryMenuFilters => ({
+      ...EMPTY_LIBRARY_FILTER,
       artist,
       album,
       playlist,

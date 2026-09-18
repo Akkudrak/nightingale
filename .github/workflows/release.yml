@@ -156,6 +156,20 @@ jobs:
             echo 'RELEASE_NOTES_EOF'
           } >> "$GITHUB_OUTPUT"
 
+      - name: Build server binary for bundling
+        shell: bash
+        run: |
+          # rust-embed reads client/dist/ at server compile time
+          (cd client && pnpm install --frozen-lockfile && pnpm build)
+          cargo build --release --locked -p server --target ${{ matrix.target }}
+          mkdir -p client/src-tauri/binaries
+          ext=""
+          case "${{ matrix.target }}" in
+            *windows*) ext=".exe" ;;
+          esac
+          src="target/${{ matrix.target }}/release/server${ext}"
+          cp "$src" "client/src-tauri/binaries/server-${{ matrix.target }}${ext}"
+
       - name: Build, bundle, and upload artifacts
         uses: tauri-apps/tauri-action@v0
         env:

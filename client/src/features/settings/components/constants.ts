@@ -77,6 +77,12 @@ export const PLAYBACK_MODES: SettingsOption[] = [
     label: 'Session mode',
     description: 'Playback uses a separate window while the menu manages the queue.',
   },
+  {
+    value: 'server_guest',
+    label: 'Server/Guest mode',
+    description:
+      'Closes the desktop and serves Nightingale over the LAN. You can return to the desktop only by relaunching the desktop shortcut.',
+  },
 ];
 
 export const LYRICS_VERTICAL_POSITIONS: SettingsOption[] = [

@@ -24,7 +24,7 @@ use crate::song::{Song, SongOrigin};
 use super::connection::{with_conn, with_conn_mut};
 use super::songs::{append_songs, update_library_meta};
 
-const SCHEMA_VERSION: i32 = 2;
+const SCHEMA_VERSION: i32 = 3;
 
 static MIGRATING: AtomicBool = AtomicBool::new(false);
 static MIGRATION_TOTAL: AtomicUsize = AtomicUsize::new(0);
@@ -122,6 +122,24 @@ pub(super) fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
                 ON playlist_songs(playlist_id, position);
             CREATE INDEX IF NOT EXISTS idx_playlist_songs_song
                 ON playlist_songs(song_id);
+        ",
+        )?;
+    }
+    if v < 3 {
+        // v3 adds the user-facing browse signals:
+        //   - `genre` from the lofty tag read at scan time so the library
+        //     can be grouped/sorted by genre without re-reading the file.
+        //   - `added_at` (Unix seconds, 0 = unknown) so the default
+        //     most-recent-first ordering has a real column to ORDER BY.
+        // Pre-v3 rows fall back to NULL / 0; the existing scan path
+        // backfills them naturally on the next re-scan of the same file
+        // (see app-core/src/song.rs::build_song).
+        conn.execute_batch(
+            "
+            ALTER TABLE songs ADD COLUMN genre TEXT;
+            ALTER TABLE songs ADD COLUMN added_at INTEGER NOT NULL DEFAULT 0;
+            CREATE INDEX IF NOT EXISTS idx_songs_genre ON songs(genre COLLATE NOCASE);
+            CREATE INDEX IF NOT EXISTS idx_songs_added_at ON songs(added_at DESC, id DESC);
         ",
         )?;
     }

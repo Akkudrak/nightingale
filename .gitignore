@@ -23,6 +23,10 @@ client/node_modules/
 client/dist/
 *.tsbuildinfo
 
+# Tauri externalBin staging directory — built by the release workflow
+# before bundling, never checked in.
+client/src-tauri/binaries/
+
 # Generated per-agent configuration and local agent state
 AGENTS.md
 CLAUDE.md

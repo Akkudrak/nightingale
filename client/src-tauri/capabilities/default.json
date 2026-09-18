@@ -18,6 +18,7 @@
     "core:window:allow-is-fullscreen",
     "process:default",
     "dialog:default",
-    "updater:default"
+    "updater:default",
+    "deep-link:default"
   ]
 }

@@ -543,6 +543,8 @@ pub(crate) fn build_usdx_song(path: &Path, cache: &CacheDir) -> Result<Song, Nig
         usdx: Some(bundle),
         origin: crate::song::SongOrigin::LocalFile,
         no_stems: false,
+        genre: None,
+        added_at: 0,
     };
 
     Ok(song)

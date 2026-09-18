@@ -2,9 +2,4 @@
 import type { FavoriteRecord } from "./FavoriteRecord";
 import type { ScoreRecord } from "./ScoreRecord";
 
-export type ProfileStore = {
-  active: string | null;
-  profiles: Array<string>;
-  scores: Array<ScoreRecord>;
-  favorites: Array<FavoriteRecord>;
-};
+export type ProfileStore = { active: string | null, profiles: Array<string>, scores: Array<ScoreRecord>, favorites: Array<FavoriteRecord>, };
