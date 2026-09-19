@@ -6,9 +6,21 @@ import { playbackLocationStateSchema } from './schemas';
 
 const SESSION_PLAYBACK_URL = '/playback?session=1';
 
-const playbackSessionSchema = playbackLocationStateSchema.extend({
-  queuePlayback: z.boolean(),
-});
+/**
+ * Session payload as stored by the server. Mirrors the discriminated
+ * union in `playbackLocationStateSchema` but lifts `queuePlayback` to
+ * the top level so the queue-only metadata lives next to the song it
+ * belongs to. YouTube sessions never queue — they launch straight
+ * into the karaoke visor.
+ */
+const playbackSessionSchema = z.union([
+  playbackLocationStateSchema.options[0].extend({
+    queuePlayback: z.boolean(),
+  }),
+  playbackLocationStateSchema.options[1].extend({
+    queuePlayback: z.boolean(),
+  }),
+]);
 
 export type PlaybackSession = z.infer<typeof playbackSessionSchema>;
 export type PlaybackTarget = Window | null | undefined;
@@ -69,9 +81,24 @@ export const showPlaybackTarget = async (target: PlaybackTarget): Promise<void> 
     width: 1280,
     height: 720,
     decorations: false,
+    focus: true,
+    // The karaoke visor expects full-screen real estate regardless of
+    // the user's last window state, so we open maximised from the
+    // start. Tauri 2.x accepts `maximized` as a WindowOptions field;
+    // the explicit `focus: true` ensures the new webview receives
+    // keyboard/IME focus immediately (otherwise the parent window
+    // keeps it and the YouTube iframe can't start playback).
+    maximized: true,
   });
   await new Promise<void>((resolve, reject) => {
-    void playbackWindow.once('tauri://created', () => resolve());
+    void playbackWindow.once('tauri://created', () => {
+      // Belt-and-suspenders: on some Windows builds `maximized` is
+      // applied after the window is first shown, so we re-issue
+      // maximise to guarantee the window fills the primary monitor
+      // before the iframe renders.
+      void playbackWindow.maximize().catch(() => undefined);
+      resolve();
+    });
     void playbackWindow.once<unknown>('tauri://error', ({ payload }) =>
       reject(new Error(String(payload))),
     );

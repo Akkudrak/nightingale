@@ -87,7 +87,7 @@ export const SongDetailsSidebar = ({ song, queueStatus, onClose }: SongDetailsSi
       return;
     }
     const start = (preparedSong: Song) =>
-      launch({ song: preparedSong, queuePlayback: false }, target);
+      launch({ kind: 'song', song: preparedSong, queuePlayback: false }, target);
     const hasAdjustments = keyOffset !== song.key_offset || tempo !== song.tempo;
 
     if (!hasAdjustments) {

@@ -1,5 +1,5 @@
-import { useCallback, useState, type ReactElement } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { useCallback, useState, type ReactElement } from 'react';
 import { toast } from 'sonner';
 
 import { EXIT_SUPPORTED, exit as exitApp } from '@/bridge/exit';
@@ -72,10 +72,13 @@ export const useServerGuestMode = ({
     [switching],
   );
 
-  const handleActionClick = useCallback((event: { preventDefault: () => void }) => {
-    event.preventDefault();
-    void onConfirm();
-  }, [onConfirm]);
+  const handleActionClick = useCallback(
+    (event: { preventDefault: () => void }) => {
+      event.preventDefault();
+      void onConfirm();
+    },
+    [onConfirm],
+  );
 
   const Dialog: ReactElement | null = EXIT_SUPPORTED ? (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -85,10 +88,9 @@ export const useServerGuestMode = ({
           <AlertDialogDescription>
             The Nightingale desktop will close and the self-hosted server will start in the
             background, reachable from any device on your LAN at{' '}
-            <span className="font-mono text-foreground">http://&lt;this-machine&gt;:8080</span>{' '}
-            (and the <span className="font-mono text-foreground">/guest</span> route for QR
-            check-ins). You can return to the desktop only by relaunching the desktop
-            shortcut.
+            <span className="font-mono text-foreground">http://&lt;this-machine&gt;:8080</span> (and
+            the <span className="font-mono text-foreground">/guest</span> route for QR check-ins).
+            You can return to the desktop only by relaunching the desktop shortcut.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

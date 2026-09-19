@@ -27,7 +27,7 @@ use lyrics::{apply_timed_lyrics, load_lyrics, provide_lrc, save_lyrics, search_l
 use microphones::{list_microphones, set_monitor_gain, start_mic_capture, stop_mic_capture};
 use playback::{
     ensure_mp3_stems, ensure_playable_source_video, fetch_pixabay_videos, get_audio_paths,
-    load_transcript,
+    load_transcript, search_youtube_videos,
 };
 use playback_queue::{
     add_playback_queue_entry, clear_playback_queue, load_playback_queue,
@@ -125,12 +125,18 @@ fn minimize_window(window: tauri::WebviewWindow) -> Result<(), String> {
 /// it in a toast before exiting so the operator always has a copy
 /// even when the auto-open-browser call below fails.
 #[tauri::command]
+#[allow(clippy::print_stderr)] // Best-effort diagnostic when the auto-open fails;
+                               // the operator already gets a toast with the URL.
 fn enter_server_guest_mode(app: tauri::AppHandle) -> Result<String, String> {
     let config = AppConfig::load();
     let data_path = config.effective_data_path();
 
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let bin_name = if cfg!(windows) { "server.exe" } else { "server" };
+    let bin_name = if cfg!(windows) {
+        "server.exe"
+    } else {
+        "server"
+    };
     let server = exe.with_file_name(bin_name);
     if !server.exists() {
         return Err(format!(
@@ -141,7 +147,10 @@ fn enter_server_guest_mode(app: tauri::AppHandle) -> Result<String, String> {
     }
 
     let mut cmd = std::process::Command::new(&server);
-    cmd.arg("--bind").arg("0.0.0.0:8080").arg("--data").arg(&data_path);
+    cmd.arg("--bind")
+        .arg("0.0.0.0:8080")
+        .arg("--data")
+        .arg(&data_path);
 
     // Mirror the CREATE_NO_WINDOW pattern from
     // `app-core/src/vendor.rs::silent_command` so server.exe doesn't
@@ -281,6 +290,7 @@ pub fn run() {
             ensure_mp3_stems,
             ensure_playable_source_video,
             fetch_pixabay_videos,
+            search_youtube_videos,
             get_media_endpoint,
             list_microphones,
             start_mic_capture,
@@ -356,7 +366,7 @@ pub fn run() {
             // handler. The plugin re-emits the URL through `on_open_url`
             // on warm starts; `get_current()` covers the cold-start case
             // where the OS spawns a fresh process with the URL on argv.
-            deep_link::register(&app.handle());
+            deep_link::register(app.handle());
 
             Ok(())
         })

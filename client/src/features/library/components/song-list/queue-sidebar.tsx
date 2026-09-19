@@ -1,4 +1,4 @@
-import { ListMusicIcon, PlayIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { ListMusicIcon, PlayIcon, Trash2Icon, XIcon, YoutubeIcon } from 'lucide-react';
 
 import type { PlaybackQueueEntry } from '@/bridge/playback-queue';
 import { useSongDetailsNav } from '@/features/library/components/song-list/details/use-song-details-nav';
@@ -35,6 +35,63 @@ const dialogFocusClass = (open: boolean, focusedIndex: number, index: number): s
     'focus-visible:border-transparent focus-visible:ring-0',
     open && focusedIndex === index && 'ring-2 ring-primary',
   );
+
+/**
+ * Thumbnail for a queue row. Song entries use `AlbumArt` (the same
+ * component the library song list uses for local files). YouTube
+ * entries render the hit thumbnail directly — `convertFileSrc` is for
+ * Tauri's asset protocol and doesn't apply to remote HTTPS images.
+ */
+const QueueRowThumbnail = ({ entry }: { entry: PlaybackQueueEntry }) => {
+  if (entry.kind === 'youtube') {
+    return (
+      <img
+        src={entry.youtube.thumbnail_url}
+        alt=""
+        loading="lazy"
+        className="size-10 shrink-0 rounded-sm object-cover"
+        width={40}
+        height={40}
+      />
+    );
+  }
+  return <AlbumArt song={entry.song} className="size-10 rounded-sm" />;
+};
+
+const QueueRowTitle = ({ entry }: { entry: PlaybackQueueEntry }) => {
+  if (entry.kind === 'youtube') {
+    return (
+      <span className="flex items-center gap-1 truncate">
+        <YoutubeIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span className="truncate" title={entry.youtube.title}>
+          {entry.youtube.title !== '' ? entry.youtube.title : 'Untitled video'}
+        </span>
+      </span>
+    );
+  }
+  return (
+    <p className="truncate" title={entry.song.title}>
+      {entry.song.title !== '' ? entry.song.title : 'Untitled'}
+    </p>
+  );
+};
+
+const QueueRowSubtitle = ({ entry }: { entry: PlaybackQueueEntry }) => {
+  const secondary =
+    entry.kind === 'youtube' ? entry.youtube.channel_title || '—' : entry.song.artist || '—';
+  return (
+    <p className="truncate text-xs text-muted-foreground">
+      {secondary}
+      {entry.addedBy !== null ? ` · Added by ${entry.addedBy}` : ''}
+    </p>
+  );
+};
+
+const queueRowRemoveLabel = (entry: PlaybackQueueEntry): string => {
+  const title = entry.kind === 'youtube' ? entry.youtube.title : entry.song.title;
+  const fallback = entry.kind === 'youtube' ? 'video' : 'song';
+  return `Remove ${title !== '' ? title : fallback} from queue`;
+};
 
 export function QueueSidebar({ entries, onClose }: QueueSidebarProps) {
   const { isPreparing, playNext } = useStartNextPlaybackQueueSong(entries);
@@ -75,25 +132,22 @@ export function QueueSidebar({ entries, onClose }: QueueSidebarProps) {
           <ol className="divide-y">
             {entries.map((entry, index) => (
               <li key={entry.id} className="flex items-center gap-2 py-2 first:pt-0 last:pb-0">
-                <AlbumArt song={entry.song} className="size-10 rounded-sm" />
+                <QueueRowThumbnail entry={entry} />
                 <div className="min-w-0 flex-1">
                   <div className="flex min-w-0 items-center text-sm font-medium">
-                    <p className="truncate">{entry.song.title}</p>
+                    <QueueRowTitle entry={entry} />
                     {index === 0 ? (
                       <span className="shrink-0 text-xs font-medium text-primary"> · Next up</span>
                     ) : null}
                   </div>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {entry.song.artist || '—'}
-                    {entry.addedBy !== null ? ` · Added by ${entry.addedBy}` : ''}
-                  </p>
+                  <QueueRowSubtitle entry={entry} />
                 </div>
                 <Button
                   variant="ghost"
                   size="icon-sm"
                   disabled={removing || clearing}
                   onClick={() => remove(entry.id)}
-                  aria-label={`Remove ${entry.song.title} from queue`}
+                  aria-label={queueRowRemoveLabel(entry)}
                 >
                   <Trash2Icon />
                 </Button>
@@ -143,8 +197,8 @@ export function QueueSidebar({ entries, onClose }: QueueSidebarProps) {
             <AlertDialogHeader>
               <AlertDialogTitle>Clear playback queue?</AlertDialogTitle>
               <AlertDialogDescription>
-                This removes all {entries.length} {entries.length === 1 ? 'song' : 'songs'} from the
-                queue.
+                This removes all {entries.length} queued {entries.length === 1 ? 'item' : 'items'}{' '}
+                from the queue.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

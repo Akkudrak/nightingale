@@ -86,6 +86,7 @@ export const appConfigSchema: z.ZodType<AppConfig> = z.object({
     )
     .nullable(),
   language_overrides: z.record(z.string(), z.string()).nullable(),
+  youtube_api_key: nullableString,
 });
 
 export const songsMetaSchema: z.ZodType<SongsMeta> = z.object({
@@ -162,8 +163,36 @@ export const webBootstrapSchema = z.object({
   libraryPinned: z.boolean().optional(),
 });
 
-export const playbackLocationStateSchema = z.object({
-  song: songSchema,
-  queuePlayback: z.boolean().optional(),
-  playbackId: z.string().optional(),
+export const youtubeTargetSchema = z.object({
+  video_id: z.string(),
+  title: z.string(),
+  channel_title: z.string(),
+  thumbnail_url: z.string(),
+  watch_url: z.string(),
 });
+
+/**
+ * Playback session payload. Either a local `Song` (full karaoke
+ * pipeline: audio engine, lyrics, mic pitch graph, scoring) or a
+ * YouTube target (karaoke visor with the YouTube `<iframe>` embedded,
+ * no audio engine / no mic / no lyrics). The `kind` discriminator is
+ * the union key.
+ */
+export const playbackLocationStateSchema = z.union([
+  z.object({
+    kind: z.literal('song'),
+    song: songSchema,
+    queuePlayback: z.boolean().optional(),
+    playbackId: z.string().optional(),
+  }),
+  z.object({
+    kind: z.literal('youtube'),
+    youtube: youtubeTargetSchema,
+    // Mirror of the `Song` variant's `queuePlayback` flag. Direct
+    // launches from search results omit it (defaults to false on the
+    // Rust side); queue-driven launches set it so the karaoke visor
+    // can surface Skip / Next-video affordances.
+    queuePlayback: z.boolean().optional(),
+    playbackId: z.string().optional(),
+  }),
+]);

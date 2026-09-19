@@ -95,7 +95,7 @@ export const SongRow = ({
   return (
     <div
       className={cn(
-        'flex items-center gap-3 rounded-lg border bg-card/40 px-3 py-2 transition-colors',
+        'flex items-center gap-3 rounded-lg border bg-card/40 px-3 py-2.5 transition-colors sm:gap-3.5 sm:px-3.5',
         'hover:bg-card/70 focus-within:bg-card/70',
       )}
     >
@@ -124,36 +124,39 @@ export const SongRow = ({
       <span className="hidden shrink-0 text-xs tabular-nums text-muted-foreground sm:inline">
         {formatDuration(song.duration_secs)}
       </span>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon-sm"
-        onClick={handlePreviewToggle}
-        aria-label={isPreviewing ? `Stop preview of ${song.title}` : `Preview ${song.title}`}
-        aria-pressed={isPreviewing}
-      >
-        {isPreviewing ? <PauseIcon /> : <PlayIcon />}
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        onClick={handleLyrics}
-        aria-label={`Show lyrics for ${song.title}`}
-        className="shrink-0 text-muted-foreground hover:text-foreground"
-      >
-        <ScrollTextIcon aria-hidden="true" />
-      </Button>
-      <Button
-        type="button"
-        variant="default"
-        size="icon-sm"
-        onClick={handleQueue}
-        disabled={isPending}
-        aria-label={`Add ${song.title} to the karaoke queue`}
-      >
-        {isPending ? <MusicIcon className="animate-pulse" /> : <ListPlusIcon />}
-      </Button>
+      <div className="flex shrink-0 items-center gap-1 rounded-md bg-muted/40 p-0.5">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          onClick={handlePreviewToggle}
+          aria-label={isPreviewing ? `Stop preview of ${song.title}` : `Preview ${song.title}`}
+          aria-pressed={isPreviewing}
+          className="bg-background"
+        >
+          {isPreviewing ? <PauseIcon /> : <PlayIcon />}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          onClick={handleLyrics}
+          aria-label={`Show lyrics for ${song.title}`}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <ScrollTextIcon aria-hidden="true" />
+        </Button>
+        <Button
+          type="button"
+          variant="default"
+          size="icon-sm"
+          onClick={handleQueue}
+          disabled={isPending}
+          aria-label={`Add ${song.title} to the karaoke queue`}
+        >
+          {isPending ? <MusicIcon className="animate-pulse" /> : <ListPlusIcon />}
+        </Button>
+      </div>
     </div>
   );
 };

@@ -22,7 +22,11 @@ export const PixabayVideo = ({ flavor, isPlaying }: PixabayVideoProps) => {
           preload="auto"
           muted
           playsInline
-          onEnded={slot.isActive ? onActiveEnded : undefined}
+          // The `'custom'` flavor picks ONE video at random and plays
+          // it forever; let the browser rewind natively instead of
+          // rotating through slots via `onEnded`.
+          loop={flavor === 'custom' && slot.isActive}
+          onEnded={slot.isActive && flavor !== 'custom' ? onActiveEnded : undefined}
           onError={slot.isActive ? onActiveEnded : undefined}
         />
       ))}

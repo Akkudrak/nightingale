@@ -7,6 +7,11 @@
 //!
 //! The output ZIP has a stable root folder (`catalog-fixture-song-<6>`)
 //! and the same metadata shape the production exporter produces.
+//!
+//! `print_stdout` is the point of this binary — the script is run by
+//! hand and the operator reads the lines.
+
+#![allow(clippy::print_stdout)]
 
 use std::path::PathBuf;
 
@@ -48,7 +53,7 @@ fn main() {
         added_at: 0,
     };
 
-    let metadata = format!("(see inside ZIP at <root>/metadata.json)");
+    let metadata = "(see inside ZIP at <root>/metadata.json)".to_string();
     println!("schema_version  = {CATALOG_ZIP_SCHEMA_VERSION}");
     println!("metadata json   = {metadata}");
     println!("writing ZIP to  = {}", output_path.display());

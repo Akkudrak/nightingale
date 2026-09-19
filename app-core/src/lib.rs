@@ -21,6 +21,7 @@ mod source;
 mod usdx;
 mod vendor;
 mod vendor_scripts;
+mod youtube;
 
 pub use analyzer::{
     AnalysisQueue, cancel_analysis, delete_cache, enqueue, realign, reanalyze_force_transcribe,
@@ -50,8 +51,8 @@ pub use playback::{
     prefetch_one_per_flavor, shift_key, shift_key_done_payload, shift_tempo,
     shift_tempo_done_payload,
 };
-pub use playback_queue::{PlaybackQueue, PlaybackQueueEntry};
-pub use playback_session::{PlaybackSession, PlaybackSessionStore};
+pub use playback_queue::{PlaybackQueue, PlaybackQueueEntry, QueueItemInput};
+pub use playback_session::{PlaybackSession, PlaybackSessionStore, YouTubeTarget};
 pub use profile::ProfileStore;
 pub use scanner::start_scan;
 pub use song::{Song, SongOrigin};
@@ -78,6 +79,7 @@ pub use vendor::{
     step_download_ffmpeg, step_download_uv, step_extract_scripts, step_install_packages,
     step_install_python,
 };
+pub use youtube::{YouTubeHit, search_youtube};
 
 pub fn startup() -> Result<(), String> {
     init_library().map_err(|e| e.to_string())?;

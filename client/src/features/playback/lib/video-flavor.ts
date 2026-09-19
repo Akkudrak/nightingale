@@ -1,4 +1,4 @@
-export const FLAVORS = ['nature', 'underwater', 'space', 'city', 'countryside'] as const;
+export const FLAVORS = ['nature', 'underwater', 'space', 'city', 'countryside', 'custom'] as const;
 
 export type VideoFlavor = (typeof FLAVORS)[number];
 

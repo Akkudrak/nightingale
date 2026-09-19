@@ -1,8 +1,9 @@
 import { Grid2X2Icon, ListIcon, ListMusicIcon, LayoutListIcon } from 'lucide-react';
 import { useRef } from 'react';
 
+import { YouTubeToggle } from '@/features/menu/components/youtube-toggle';
 import { useLibraryFilter } from '@/features/menu/hooks/use-library-filter';
-import { useSearch } from '@/features/menu/hooks/use-search';
+import { useSearch, useYouTubeEnabled } from '@/features/menu/hooks/use-search';
 import { useMenuFocus } from '@/features/menu/providers/menu-focus-context';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
@@ -96,6 +97,7 @@ const FiltersToolbar = ({
 const SearchInput = () => {
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const { search, setSearch } = useSearch();
+  const { enabled: youtubeEnabled, setEnabled: setYouTubeEnabled } = useYouTubeEnabled();
 
   const handleChange = (value: string) => {
     clearTimeout(timerRef.current);
@@ -105,6 +107,7 @@ const SearchInput = () => {
   return (
     <div className="col-span-2 flex min-w-0 items-center gap-2 sm:col-span-3 2xl:col-span-1">
       <SidebarTrigger variant="outline" size="icon" className="shrink-0 md:hidden" />
+      <YouTubeToggle checked={youtubeEnabled} onChange={setYouTubeEnabled} />
       <Input
         defaultValue={search}
         onChange={({ target: { value } }) => handleChange(value)}
@@ -198,7 +201,7 @@ const ToolbarActions = ({
       className={cn('relative', isActionFocused(0) && 'ring-2 ring-primary')}
       data-actions-index="0"
       onClick={onOpenQueue}
-      aria-label={`Open playback queue, ${queueCount} ${queueCount === 1 ? 'song' : 'songs'}`}
+      aria-label={`Open playback queue, ${queueCount} queued ${queueCount === 1 ? 'item' : 'items'}`}
       title="Playback queue"
     >
       <ListMusicIcon />

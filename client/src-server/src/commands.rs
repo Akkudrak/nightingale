@@ -2,7 +2,8 @@ use app_core::{
     ensure_mp3_stems_ready_payload, load_lyrics_file, save_lyrics_and_realign,
     search_lrclib_for_hash, shift_key_done_payload, shift_tempo_done_payload, AnalysisQueue,
     AppConfig, CacheStats, LibraryMenuItems, LibrarySource, LoadSongsParams,
-    PixabayVideoDownloaded, PlaybackSession, ProfileStore, SongTarget, SongsStore,
+    PixabayVideoDownloaded, PlaybackSession, ProfileStore, QueueItemInput, SongTarget, SongsStore,
+    YouTubeTarget,
 };
 use axum::{
     extract::{Path as AxumPath, State},
@@ -147,18 +148,43 @@ async fn dispatch(state: AppState, name: &str, payload: Value) -> CmdResult {
         }
         "add_playback_queue_entry" => {
             #[derive(Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Args {
-                file_hash: String,
-                tempo: f64,
-                key_offset: i32,
-                #[serde(default)]
-                added_by: Option<String>,
+            #[serde(tag = "kind", rename_all = "camelCase")]
+            enum Args {
+                Song {
+                    file_hash: String,
+                    tempo: f64,
+                    key_offset: i32,
+                    #[serde(default)]
+                    added_by: Option<String>,
+                },
+                Youtube {
+                    youtube: YouTubeTarget,
+                    #[serde(default)]
+                    added_by: Option<String>,
+                },
             }
             let args: Args = deserialize(payload)?;
+            let (input, added_by) = match args {
+                Args::Song {
+                    file_hash,
+                    tempo,
+                    key_offset,
+                    added_by,
+                } => (
+                    QueueItemInput::Song {
+                        file_hash,
+                        tempo,
+                        key_offset,
+                    },
+                    added_by,
+                ),
+                Args::Youtube { youtube, added_by } => {
+                    (QueueItemInput::Youtube { youtube }, added_by)
+                }
+            };
             let entries = state
                 .playback_queue
-                .add(&args.file_hash, args.tempo, args.key_offset, args.added_by)
+                .add(input, added_by)
                 .map_err(ApiError::bad_request)?;
             events.emit("playback-queue-changed", &entries);
             Ok(serde_json::to_value(entries).map_err(serde_err)?)
@@ -451,9 +477,7 @@ async fn dispatch(state: AppState, name: &str, payload: Value) -> CmdResult {
             let args: Args = deserialize(payload)?;
             let result = app_core::song_export::import_song_full_from_path(
                 std::path::Path::new(&args.zip_path),
-                args.target_library_dir
-                    .as_deref()
-                    .map(std::path::Path::new),
+                args.target_library_dir.as_deref().map(std::path::Path::new),
             )
             .map_err(|e| ApiError::internal(e.to_string()))?;
             Ok(json!({
@@ -532,6 +556,30 @@ async fn dispatch(state: AppState, name: &str, payload: Value) -> CmdResult {
             Ok(serde_json::to_value(path).map_err(serde_err)?)
         }
         "fetch_pixabay_videos" => fetch_pixabay_videos_cmd(events, payload),
+
+        // YouTube fallback for the song-list search bar. Reads the same
+        // `youtube_api_key` from `AppConfig::load()` as the Tauri
+        // command so desktop + /guest stay in lockstep. The karaoke
+        // suffix + `maxResults=5` cap live next to the call site so
+        // the bridge stays format-agnostic.
+        "search_youtube_videos" => {
+            #[derive(Deserialize)]
+            struct Args {
+                query: String,
+            }
+            let args: Args = deserialize(payload)?;
+            let config = AppConfig::load();
+            let api_key = config.youtube_api_key().ok_or_else(|| {
+                ApiError::bad_request(String::from(
+                    "YouTube API key is not configured. Add it in Settings → Library.",
+                ))
+            })?;
+            let trimmed = args.query.trim();
+            let with_suffix = format!("{trimmed} karaoke");
+            let hits = app_core::search_youtube(api_key, &with_suffix, 5)
+                .map_err(ApiError::bad_request)?;
+            serde_json::to_value(hits).map_err(serde_err)
+        }
 
         // ── Vendor ───────────────────────────────────────────────────────
         "is_ready" => Ok(Value::Bool(app_core::is_ready())),
@@ -654,6 +702,13 @@ fn fetch_pixabay_videos_cmd(events: std::sync::Arc<EventBus>, payload: Value) ->
     }
     let args: Args = deserialize(payload)?;
     let cached = app_core::get_cached_pixabay_videos(&args.flavor);
+
+    if args.flavor == "custom" {
+        // User-supplied folder under `<cache>/videos/custom/`. No
+        // auto-download, same reason as the Tauri arm — see
+        // `client/src-tauri/src/playback.rs::fetch_pixabay_videos`.
+        return Ok(json!(cached));
+    }
 
     let flavor_for_thread = args.flavor.clone();
     let events_clone = events.clone();

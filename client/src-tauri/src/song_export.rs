@@ -19,10 +19,7 @@ pub(crate) struct ImportSongResponse {
 }
 
 #[tauri::command]
-pub(crate) fn export_song_full(
-    file_hash: String,
-    output_path: String,
-) -> Result<u64, String> {
+pub(crate) fn export_song_full(file_hash: String, output_path: String) -> Result<u64, String> {
     export_song_full_to_path(&file_hash, Path::new(&output_path)).map_err(|e| e.to_string())
 }
 
@@ -35,9 +32,10 @@ pub(crate) fn import_song_full(
         .as_deref()
         .filter(|s| !s.is_empty())
         .map(Path::new);
-    let ImportResult { song, imported_path } =
-        import_song_full_from_path(Path::new(&zip_path), target)
-            .map_err(|e| e.to_string())?;
+    let ImportResult {
+        song,
+        imported_path,
+    } = import_song_full_from_path(Path::new(&zip_path), target).map_err(|e| e.to_string())?;
     Ok(ImportSongResponse {
         file_hash: song.file_hash,
         title: song.title,

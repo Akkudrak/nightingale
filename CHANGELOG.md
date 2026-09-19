@@ -11,6 +11,19 @@ GitHub Release body. If a section is missing the release is still created
 with a fallback body, but ideally every tagged version has its own entry
 below.
 
+## [Unreleased]
+
+### Features
+
+- YouTube fallback search. A new `YouTube` toggle next to the search input in both the library filters bar and the `/guest` toolbar extends the local query against the YouTube Data API v3, appends the top five hits under a "From YouTube" separator inside the same scrollable list, and works for any guest on the LAN. The API key is configured once in **Settings → Library** (`youtube_api_key` in `AppConfig`); without a key the toggle is a no-op and the search request returns a clear toast. The HTTP client was switched from `ureq` defaults (bundled `webpki-roots`) to a hand-built `Agent` with `TlsProvider::NativeTls` + `RootCerts::PlatformVerifier` so the YouTube Data API works on hosts whose trust store is intercepted by Avast Web Shield or similar MITM products (the previous `rustls`+`webpki-roots` combo rejected these hosts with `io: invalid peer certificate: UnknownIssuer`). The native-tls agent is wired only in `app-core::youtube` and does not affect other `ureq` users; the `default-features = false` switch on the `ureq` dependency keeps the rustls backend out of the dep tree on builds that don't need it.
+- YouTube entries in the playback queue. `PlaybackQueueEntry` is now a tagged enum (`Song | Youtube`) shared between the Tauri and `/api` transport. Guests and operators can add a YouTube hit to the queue from a new `ListPlusIcon` button on every search row (next to the existing "Open in browser" fallback); the queue sidebar and `/guest` queue drawer render mixed `song | youtube` rows with the correct thumbnail, title, subtitle, and `Added by` attribution. The `useStartNextPlaybackQueueSong` hook branches on the front entry's kind — songs still flow through `preparePlayback` for tempo/key shifts; YouTube entries skip the audio engine and launch directly into the karaoke visor as `{ kind: 'youtube', queuePlayback: true }`.
+- Queue-driven YouTube visor. When the active session is `kind: 'youtube' && queuePlayback === true`, the visor subscribes to `playback-queue-changed` and surfaces a small **Skip** button in the HUD plus an end-of-video **Next video** / **End of the queue** dialog (mirrors the song `ResultDialog`). The embed uses the YouTube iframe API via `postMessage` (`enablejsapi=1`); a WebView2 autoplay-fallback overlay (`Tap to play`) sits on top of the iframe until the player fires its first `onStateChange: 1`. Direct launches from search (no queue) keep the previous single-watch behaviour — no Skip, no Next overlay.
+
+### Fixes
+
+- Guest song list short-circuit to the empty state no longer hides YouTube rows when the local search has no matches. The fix mirrors the library `SongCollection` `!youtubeVisible` guard so a query like "adrian barba" (zero local songs, five YouTube hits) renders the YouTube section below the empty song list instead of replacing the panel with "No songs match this filter".
+- Guest toolbar breathes: the cramped single-row layout (artist drawer + search + favorites + queue + profile + hidden YouTube checkbox) is split into a search row and a filter row. The YouTube toggle is now a real chip with a visible label and is shared with the library filters bar via a new `features/menu/components/youtube-toggle.tsx`; the hidden checkbox inside the search input is removed. Song rows also gained vertical padding and a grouped container for the action buttons so they read as one unit rather than four free-floating icons.
+
 ## [1.3.0] - 2026-09-17
 
 ### Features

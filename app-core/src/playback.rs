@@ -928,7 +928,7 @@ fn flavor_config(flavor: &str) -> FlavorConfig {
     }
 }
 
-fn urlencode_query(s: &str) -> String {
+pub(crate) fn urlencode_query(s: &str) -> String {
     s.bytes()
         .map(|b| match b {
             b' ' => "+".to_string(),

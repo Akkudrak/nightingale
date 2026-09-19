@@ -212,6 +212,11 @@ pub struct AppConfig {
     #[serde(default, deserialize_with = "deserialize_song_list_sort")]
     pub song_list_sort: Option<Vec<SongSort>>,
     pub language_overrides: Option<HashMap<String, String>>,
+    /// User-provided YouTube Data API v3 key. Stored in `config.json` so
+    /// both the desktop app and `/guest` share the same quota. Treated as
+    /// opt-in — when `None` the `<YouTubeToggle>` shortcut in the search
+    /// bar no-ops and the Settings → Library panel prompts for the key.
+    pub youtube_api_key: Option<String>,
 }
 
 fn default_data_path_option() -> Option<PathBuf> {
@@ -270,6 +275,7 @@ impl Default for AppConfig {
             song_list_view: None,
             song_list_sort: None,
             language_overrides: None,
+            youtube_api_key: None,
         }
     }
 }
@@ -395,6 +401,20 @@ impl AppConfig {
 
     pub fn whisper_model(&self) -> &str {
         self.whisper_model.as_deref().unwrap_or("large-v3")
+    }
+
+    /// User-pasted YouTube Data API v3 key, trimmed. Returns `None` when
+    /// the key is unset or only whitespace — callers should treat that as
+    /// "feature disabled" rather than "feature misconfigured". The
+    /// Settings → Library panel validates the input once on paste and
+    /// rejects it later via a toast.
+    pub fn youtube_api_key(&self) -> Option<&str> {
+        self.youtube_api_key
+            .as_deref()
+            .and_then(|s| match s.trim() {
+                "" => None,
+                trimmed => Some(trimmed),
+            })
     }
 
     pub fn beam_size(&self) -> u32 {

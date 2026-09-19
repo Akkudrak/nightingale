@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 
 import type { PlaybackQueueEntry } from '@/bridge/playback-queue';
+import { useYouTubeSection } from '@/features/library/hooks/use-youtube-section';
 import { useAnalysisQueue, useSongs } from '@/features/library/queries/use-songs';
 import { useLibraryFilter } from '@/features/menu/hooks/use-library-filter';
 import { useSearch } from '@/features/menu/hooks/use-search';
@@ -18,6 +19,7 @@ import type { QueuedStatus } from '@/types/QueuedStatus';
 import type { Song } from '@/types/Song';
 import type { SongSort } from '@/types/SongSort';
 import type { SongSortColumn } from '@/types/SongSortColumn';
+import type { YouTubeHit } from '@/types/YouTubeHit';
 
 import { Filters, type SongListView } from './filters';
 import { Progress } from './progress';
@@ -28,9 +30,13 @@ import type { SongItemProps } from './types';
 import { SongGenreSectioned } from './views/song-genre-sectioned';
 import { SongGrid } from './views/song-grid';
 import { SongTable } from './views/song-table';
+import { YouTubeResultsList, YouTubeSeparator } from './youtube-results';
 
 type SongCollectionProps = {
   songs: Song[];
+  youtubeHits: YouTubeHit[];
+  youtubeLoading: boolean;
+  youtubeVisible: boolean;
   view: SongListView;
   sort: readonly SongSort[];
   sortingDisabled: boolean;
@@ -86,7 +92,12 @@ const EmptySongs = ({ filtered }: { filtered: boolean }) => (
   </Empty>
 );
 
-const renderSongs = (view: SongListView, props: SongCollectionProps) => {
+type RenderSongsProps = Pick<
+  SongCollectionProps,
+  'songs' | 'sort' | 'sortingDisabled' | 'getItemProps' | 'onSort'
+>;
+
+const renderSongs = (view: SongListView, props: RenderSongsProps) => {
   if (view === 'table') {
     return (
       <SongTable
@@ -106,6 +117,9 @@ const renderSongs = (view: SongListView, props: SongCollectionProps) => {
 
 const SongCollection = ({
   songs,
+  youtubeHits,
+  youtubeLoading,
+  youtubeVisible,
   view,
   sort,
   sortingDisabled,
@@ -116,7 +130,7 @@ const SongCollection = ({
   sentinelRef,
   onSort,
 }: SongCollectionProps) => {
-  if (songs.length === 0 && !loading) {
+  if (songs.length === 0 && !loading && !youtubeVisible) {
     return <EmptySongs filtered={hasActiveFilter} />;
   }
 
@@ -128,16 +142,13 @@ const SongCollection = ({
     >
       {renderSongs(view, {
         songs,
-        view,
         sort,
         sortingDisabled,
-        loading,
-        hasActiveFilter,
         getItemProps,
-        setScrollContainer,
-        sentinelRef,
         onSort,
       })}
+      <YouTubeSeparator visible={youtubeVisible} />
+      <YouTubeResultsList hits={youtubeHits} loading={youtubeLoading} />
       <div ref={sentinelRef} className="h-1" aria-hidden="true" />
     </div>
   );
@@ -190,6 +201,11 @@ export const SongList = () => {
   const { focus, actionsRef, setFocus, selectedSong, setSelectedSong } = useMenuFocus();
   const { setScrollContainer, resetScroll } = usePersistentScroll('songList');
   const { search } = useSearch();
+  const {
+    hits: youtubeHits,
+    loading: youtubeLoading,
+    visible: youtubeVisible,
+  } = useYouTubeSection();
   const { artist, album, playlist, query, status, transcript_source } = useLibraryFilter();
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useSongs();
   const [queueOpen, setQueueOpen] = useState(false);
@@ -313,6 +329,9 @@ export const SongList = () => {
         <Progress />
         <SongCollection
           songs={songs}
+          youtubeHits={youtubeHits}
+          youtubeLoading={youtubeLoading}
+          youtubeVisible={youtubeVisible}
           view={view}
           sort={sort}
           sortingDisabled={isSavingConfig}

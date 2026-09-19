@@ -7,13 +7,14 @@ import type { AppConfig } from '@/types/AppConfig';
 
 export { PLAYBACK_SCALE_MAX, PLAYBACK_SCALE_MIN } from '@/features/playback/lib/display-scale';
 
-export type SettingsTab = 'general' | 'playback' | 'analysis';
+export type SettingsTab = 'general' | 'playback' | 'analysis' | 'library';
 export type SettingsOption = { value: string; label: string; description?: string };
 
 export const SETTINGS_TABS: { value: SettingsTab; label: string }[] = [
   { value: 'general', label: 'General' },
   { value: 'playback', label: 'Playback' },
   { value: 'analysis', label: 'Analysis' },
+  { value: 'library', label: 'Library' },
 ];
 
 export const SEPARATORS: SettingsOption[] = [
@@ -160,6 +161,9 @@ export const NAV = {
     lyricsScale: 4,
     pitchGraphScale: 5,
   },
+  library: {
+    youtubeApiKey: 1,
+  },
 } as const;
 
 // The Whisper-only "Model size" + "Beam Size" fields sit right after the
@@ -196,6 +200,9 @@ export function getSettingsStops(tab: SettingsTab, isParakeet: boolean) {
   }
   if (tab === 'playback') {
     return [3, 1, 1, 1, 1, 1, 2];
+  }
+  if (tab === 'library') {
+    return [4, 1, 1];
   }
 
   return isParakeet

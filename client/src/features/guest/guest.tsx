@@ -1,5 +1,8 @@
 import { useState } from 'react';
 
+import { useYouTubeSection } from '@/features/library/hooks/use-youtube-section';
+import { YouTubeToggle } from '@/features/menu/components/youtube-toggle';
+import { useSearch as useSharedSearch } from '@/features/menu/hooks/use-search';
 import type { Song } from '@/types/Song';
 
 import { ArtistDrawer, ArtistSidebar } from './components/artist-list';
@@ -20,10 +23,21 @@ import { useNowPlaying, useSubscribeJukebox } from './hooks/use-now-playing';
 export const GuestRoute = () => {
   const [searchInput, setSearchInput] = useState('');
   const search = useDebouncedValue(searchInput, 250);
+  const { setSearch: setSharedSearch } = useSharedSearch();
   const [artist, setArtist] = useState<string | null>(null);
   const [previewSong, setPreviewSong] = useState<Song | null>(null);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [lyricsSong, setLyricsSong] = useState<Song | null>(null);
+  const youtube = useYouTubeSection();
+
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
+    // Mirror to the shared search atom so the YouTube fallback hook
+    // (which reads the same atom via `useSearch`) fires alongside the
+    // guest's local debounce. No re-render here for the desktop-side
+    // listeners — only the guest route mounts this component.
+    setSharedSearch(value);
+  };
 
   const profile = useGuestProfile();
 
@@ -59,21 +73,26 @@ export const GuestRoute = () => {
   return (
     <div className="flex h-dvh w-full flex-col bg-background text-foreground">
       <NowPlayingHeader {...nowPlaying} />
-      <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2 sm:px-4">
-        <ArtistDrawer selected={artist} onSelect={setArtist} />
-        <SearchInput value={searchInput} onChange={setSearchInput} />
-        <div className="flex shrink-0 items-center gap-1.5">
-          <GuestFavoritesFilterButton
-            active={favoritesOnly}
-            onClick={() => setFavoritesOnly((v) => !v)}
-          />
-          <GuestQueueDrawer trigger={<GuestQueueButton />} />
+      <div className="flex shrink-0 flex-col gap-1.5 border-b px-3 py-2 sm:px-4">
+        <div className="flex items-center gap-2">
+          <SearchInput value={searchInput} onChange={handleSearchChange} />
+          <YouTubeToggle checked={youtube.enabled} onChange={youtube.setEnabled} />
           <ProfileChip
             name={profile.name}
             knownNames={profile.knownNames}
             onSwitch={profile.switchTo}
             onSignOut={profile.signOut}
           />
+        </div>
+        <div className="flex items-center gap-2">
+          <ArtistDrawer selected={artist} onSelect={setArtist} />
+          <div className="ml-auto flex items-center gap-1.5">
+            <GuestFavoritesFilterButton
+              active={favoritesOnly}
+              onClick={() => setFavoritesOnly((v) => !v)}
+            />
+            <GuestQueueDrawer trigger={<GuestQueueButton />} />
+          </div>
         </div>
       </div>
       <div className="flex min-h-0 flex-1 overflow-hidden pb-20">
@@ -83,6 +102,9 @@ export const GuestRoute = () => {
           artist={artist}
           favoritesOnly={favoritesOnly}
           previewHash={previewSong?.file_hash ?? null}
+          youtubeHits={youtube.hits}
+          youtubeLoading={youtube.loading}
+          youtubeVisible={youtube.visible}
           onPreview={handlePreview}
           onPreviewStop={handlePreviewStop}
           onLyrics={handleLyrics}

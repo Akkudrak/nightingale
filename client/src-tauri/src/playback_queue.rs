@@ -1,4 +1,5 @@
-use app_core::{PlaybackQueue, PlaybackQueueEntry};
+use app_core::{PlaybackQueue, PlaybackQueueEntry, QueueItemInput, YouTubeTarget};
+use serde::Deserialize;
 use tauri::{AppHandle, Emitter, State};
 
 const QUEUE_CHANGED_EVENT: &str = "playback-queue-changed";
@@ -15,16 +16,53 @@ pub(crate) fn load_playback_queue(
     queue.entries()
 }
 
+/// Tagged payload that mirrors the discriminated `PlaybackQueueEntry`
+/// enum on the Rust side and the `addPlaybackQueueEntry` bridge
+/// signature on the TS side. `rename_all = "camelCase"` keeps the
+/// on-the-wire field names consistent with the rest of the bridge
+/// (`fileHash`, `keyOffset`, `addedBy`, `videoId`, …).
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub(crate) enum AddQueueEntryArgs {
+    Song {
+        file_hash: String,
+        tempo: f64,
+        key_offset: i32,
+        #[serde(default)]
+        added_by: Option<String>,
+    },
+    Youtube {
+        youtube: YouTubeTarget,
+        #[serde(default)]
+        added_by: Option<String>,
+    },
+}
+
 #[tauri::command]
 pub(crate) fn add_playback_queue_entry(
     app: AppHandle,
     queue: State<'_, PlaybackQueue>,
-    file_hash: String,
-    tempo: f64,
-    key_offset: i32,
-    added_by: Option<String>,
+    args: AddQueueEntryArgs,
 ) -> Result<Vec<PlaybackQueueEntry>, String> {
-    let entries = queue.add(&file_hash, tempo, key_offset, added_by)?;
+    let (input, added_by) = match args {
+        AddQueueEntryArgs::Song {
+            file_hash,
+            tempo,
+            key_offset,
+            added_by,
+        } => (
+            QueueItemInput::Song {
+                file_hash,
+                tempo,
+                key_offset,
+            },
+            added_by,
+        ),
+        AddQueueEntryArgs::Youtube { youtube, added_by } => {
+            (QueueItemInput::Youtube { youtube }, added_by)
+        }
+    };
+    let entries = queue.add(input, added_by)?;
     emit_queue(&app, &entries)?;
     Ok(entries)
 }

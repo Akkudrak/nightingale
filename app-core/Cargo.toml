@@ -11,7 +11,7 @@ ts-rs = { version = "12", features = ["no-serde-warnings"] }
 walkdir = "2"
 blake3 = "1"
 lofty = "0.23"
-ureq = { version = "3", features = ["json"] }
+ureq = { version = "3", default-features = false, features = ["json", "native-tls"] }
 urlencoding = "2"
 rand = "0.9"
 tiny_http = "0.12.0"

@@ -4,6 +4,11 @@
 //!
 //! Run with:
 //!     cd nightingale && cargo run -p app-core --example export-bundle-fixture -- <output_path>
+//!
+//! `print_stdout` is the point of this binary — the operator reads the
+//! "wrote … bytes" line to confirm the fixture was built.
+
+#![allow(clippy::print_stdout)]
 
 use std::path::PathBuf;
 

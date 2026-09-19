@@ -26,7 +26,12 @@ export function usePlaybackLauncher() {
   const launch = async (session: PlaybackSession, target: PlaybackTarget): Promise<void> => {
     try {
       if (!sessionMode) {
-        await navigate('/playback', { replace: session.queuePlayback, state: session });
+        // Sessions track their queue position via `queuePlayback` —
+        // both song and YouTube variants carry the flag, so the next
+        // session can replace the current entry in the history stack
+        // regardless of kind. Direct launches leave the flag false.
+        const replace = session.queuePlayback;
+        await navigate('/playback', { replace, state: session });
         return;
       }
 

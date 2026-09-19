@@ -13,9 +13,37 @@ import {
   type PlaybackSession,
 } from '@/bridge/playback-session';
 import { playbackLocationStateSchema } from '@/bridge/schemas';
+import {
+  usePlaybackQueueQuery,
+  useStartNextPlaybackQueueSong,
+} from '@/features/playback-queue/use-playback-queue';
 import { useConfig } from '@/shared/config/use-config';
 
+import { YouTubePlayback } from './components/youtube-playback';
 import { PlaybackInner } from './playback-inner';
+
+/**
+ * YouTube session renderer. Lives in its own component so the queue
+ * hooks only run for the YouTube branch — the song branch stays on
+ * its existing `usePlaybackResult` / `ResultDialog` flow without
+ * subscribing to `playback-queue-changed` events.
+ */
+function YouTubeSessionView({
+  session,
+}: {
+  session: Extract<PlaybackSession, { kind: 'youtube' }>;
+}) {
+  const { data: queueEntries = [] } = usePlaybackQueueQuery();
+  const { playNext } = useStartNextPlaybackQueueSong(queueEntries);
+  return (
+    <YouTubePlayback
+      key={session.playbackId ?? session.youtube.video_id}
+      youtube={session.youtube}
+      queuePlayback={session.queuePlayback}
+      onNext={playNext}
+    />
+  );
+}
 
 function PlaybackSessionView({
   session,
@@ -24,7 +52,17 @@ function PlaybackSessionView({
   session: PlaybackSession;
   sessionPlayback: boolean;
 }) {
+  // `useConfig` must run unconditionally (Rules of Hooks). The branch
+  // sits below — only `PlaybackInner` actually consumes `config`.
   const { data: config } = useConfig();
+
+  if (session.kind === 'youtube') {
+    // YouTube sessions never enter the queue pipeline; they go straight
+    // into the karaoke visor with the embedded iframe. The session
+    // carries a `queuePlayback` flag that the visor reads to decide
+    // whether to surface Skip / Next-video affordances.
+    return <YouTubeSessionView session={session} />;
+  }
 
   return (
     <PlaybackInner
@@ -49,9 +87,22 @@ export const Playback = () => {
     return <Navigate to="/" replace />;
   }
 
+  if (parsedState.data.kind === 'youtube') {
+    const { youtube, queuePlayback = false, playbackId } = parsedState.data;
+    return (
+      <PlaybackSessionView
+        session={{ kind: 'youtube', youtube, queuePlayback, playbackId }}
+        sessionPlayback={false}
+      />
+    );
+  }
+
   const { song, queuePlayback = false, playbackId } = parsedState.data;
   return (
-    <PlaybackSessionView session={{ song, queuePlayback, playbackId }} sessionPlayback={false} />
+    <PlaybackSessionView
+      session={{ kind: 'song', song, queuePlayback, playbackId }}
+      sessionPlayback={false}
+    />
   );
 };
 

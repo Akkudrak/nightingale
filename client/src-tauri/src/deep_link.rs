@@ -30,9 +30,7 @@
 use std::path::Path;
 use std::thread;
 
-use app_core::song_export::{
-    import_song_full_from_path, DeepLinkImportDone, ImportResult,
-};
+use app_core::song_export::{import_song_full_from_path, DeepLinkImportDone, ImportResult};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use serde::Deserialize;
 use tauri::{AppHandle, Emitter, Manager};

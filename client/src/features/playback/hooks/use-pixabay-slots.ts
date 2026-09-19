@@ -295,6 +295,15 @@ export function usePixabaySlots(flavor: VideoFlavor, isPlaying: boolean): UsePix
       const urls = paths.map((path) => toUrl(path));
       library.registerUrls(slotFlavor, urls);
 
+      if (slotFlavor === 'custom') {
+        // The Tauri/server arm skipped the Pixabay download spawn for
+        // `custom`; we already registered the user-supplied paths in
+        // the library above. Nothing else to do — no need to push the
+        // active slot because `PixabayVideo`'s `<video loop>` keeps
+        // playing the picked URL on its own.
+        return;
+      }
+
       if (flavorRef.current === slotFlavor) {
         ensureFlavorPlayback(slotFlavor);
       }

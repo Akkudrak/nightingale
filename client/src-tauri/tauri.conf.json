@@ -21,7 +21,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:* http://localhost:*; img-src 'self' asset: http://asset.localhost; media-src 'self' http://127.0.0.1:* https:; style-src 'self' 'unsafe-inline'",
+      "csp": "default-src 'self' ipc: http://ipc.localhost; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:* http://localhost:* https://www.youtube-nocookie.com https://www.youtube.com; img-src 'self' asset: http://asset.localhost https:; media-src 'self' http://127.0.0.1:* https:; frame-src https://www.youtube-nocookie.com https://www.youtube.com; script-src 'self' https://www.youtube-nocookie.com https://www.youtube.com; style-src 'self' 'unsafe-inline'",
       "assetProtocol": {
         "enable": true,
         "scope": ["$HOME/.nightingale/**"]
@@ -46,9 +46,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": [
-      "binaries/server"
-    ]
+    "externalBin": ["binaries/server"]
   },
   "plugins": {
     "updater": {

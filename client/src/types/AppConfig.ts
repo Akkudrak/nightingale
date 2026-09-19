@@ -14,4 +14,11 @@ last_folder: string | null, library_source: LibrarySource | null, last_theme: nu
  * called this feature "mic mirroring" loading without a manual migration;
  * the next `save` rewrites them under the new name.
  */
-mic_monitoring: boolean | null, mic_monitor_gain: number | null, mic_latency_compensation_sec: number | null, preferred_mic: string | null, whisper_model: string | null, beam_size: number | null, batch_size: number | null, last_video_flavor: number | null, lyrics_vertical_position: string | null, lyrics_horizontal_position: string | null, lyrics_scale: number | null, pitch_graph_scale: number | null, separator: string | null, asr_engine: string | null, align_backend: string | null, vocal_detection_threshold_pct: number | null, auto_analyze: boolean | null, song_list_view: string | null, song_list_sort: Array<SongSort> | null, language_overrides: { [key in string]: string } | null, };
+mic_monitoring: boolean | null, mic_monitor_gain: number | null, mic_latency_compensation_sec: number | null, preferred_mic: string | null, whisper_model: string | null, beam_size: number | null, batch_size: number | null, last_video_flavor: number | null, lyrics_vertical_position: string | null, lyrics_horizontal_position: string | null, lyrics_scale: number | null, pitch_graph_scale: number | null, separator: string | null, asr_engine: string | null, align_backend: string | null, vocal_detection_threshold_pct: number | null, auto_analyze: boolean | null, song_list_view: string | null, song_list_sort: Array<SongSort> | null, language_overrides: { [key in string]: string } | null, 
+/**
+ * User-provided YouTube Data API v3 key. Stored in `config.json` so
+ * both the desktop app and `/guest` share the same quota. Treated as
+ * opt-in — when `None` the `<YouTubeToggle>` shortcut in the search
+ * bar no-ops and the Settings → Library panel prompts for the key.
+ */
+youtube_api_key: string | null, };
