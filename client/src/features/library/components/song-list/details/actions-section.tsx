@@ -59,7 +59,7 @@ export const ActionsSection = ({
       {
         icon: TrophyIcon,
         title: 'Leaderboard',
-        description: 'View the best score from each profile.',
+        description: 'Every scoring attempt, ordered by score.',
         onClick: () => setMode({ mode: 'song-leaderboard', song }),
       },
     ]);

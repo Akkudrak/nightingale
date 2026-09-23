@@ -9,6 +9,8 @@ export type DialogMode =
   | 'create-profile'
   | 'select-profile'
   | 'leaderboards'
+  | 'history'
+  | 'recordings'
   | 'about'
   | 'update'
   | 'donate'

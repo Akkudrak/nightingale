@@ -4,7 +4,9 @@ import {
   DoorOpenIcon,
   DownloadIcon,
   HeartIcon,
+  HistoryIcon,
   InfoIcon,
+  MicIcon,
   RefreshCcwDotIcon,
   TrophyIcon,
   UserIcon,
@@ -203,6 +205,14 @@ export const Actions = ({ registerCallback, focusedSidebarIndex }: ActionsProps)
               <DropdownMenuItem onClick={() => setMode('leaderboards')}>
                 <TrophyIcon />
                 Leaderboards
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setMode('history')}>
+                <HistoryIcon />
+                Recent plays
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setMode('recordings')}>
+                <MicIcon />
+                Recordings
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
