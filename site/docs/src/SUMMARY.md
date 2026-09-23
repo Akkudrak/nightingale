@@ -12,6 +12,7 @@
   - [Lyrics & Transcription](./lyrics.md)
   - [UltraStar Deluxe](./usdx.md)
 - [Library Sources](./library-sources.md)
+- [Online Catalog Imports](./catalog-importer.md)
 - [Scoring](./scoring.md)
 - [Backgrounds](./backgrounds.md)
 - [Profiles](./profiles.md)

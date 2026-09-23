@@ -52,6 +52,14 @@ This process takes a few minutes and shows a progress screen. After setup comple
 
 When prompted, select your music folder. Nightingale scans it for supported audio and video files. You can change this folder later from the sidebar actions menu.
 
+## Receiving Songs from Online Catalogs
+
+Hosts (websites, the project itself, friends) can share Nightingale songs through `nightingale-import://…` deep links. Clicking one launches the **catalog importer**, a small companion app that downloads the catalog ZIP and lands the song directly in your existing library (`songs.db` + `cache/`) without keeping Nightingale open.
+
+The catalog importer works with Nightingale 1.0.0 and newer, including the desktop app you already have. The first time you click a catalog link, a two-step wizard asks for your existing system folder (the parent of `songs.db` / `cache/`) and your library folder; the choices persist so subsequent catalog links skip straight to the status view.
+
+See [Online Catalog Imports](./catalog-importer.md) for the full flow, permissions, and troubleshooting.
+
 ## Browsing and Playing Songs
 
 Use the song-list toolbar to switch between a compact table and an artwork grid. Search combines with sidebar selections and the toolbar's analysis-status and lyric-source filters, so you can narrow the library without losing context.
