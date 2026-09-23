@@ -21,6 +21,8 @@ RELEASING.md
 # JavaScript build output
 client/node_modules/
 client/dist/
+client-catalog-importer/node_modules/
+client-catalog-importer/dist/
 *.tsbuildinfo
 
 # Tauri externalBin staging directory — built by the release workflow
@@ -64,3 +66,10 @@ replit.md
 .windsurf/
 .github/copilot-instructions.md
 .github/instructions/
+
+# Local debug scripts/logs from the desktop-app triage session
+README.md.bak
+debug-err.log
+debug-out.log
+run-debug.bat
+check-windows.ps1
