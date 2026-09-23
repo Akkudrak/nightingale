@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { switchProfile } from '@/bridge/profile';
 import { useProfileMutations } from '@/features/profiles/mutations/use-profile-mutations';
 import { useProfiles } from '@/features/profiles/queries/use-profiles';
 
@@ -67,6 +66,15 @@ export const useGuestProfile = (): GuestProfile => {
   // what the guest picked locally. A ref guards against re-firing on later
   // refreshes; the catch path clears the local mirror so the gate can
   // reappear if the server rejects the stored name.
+  //
+  // Route through `mutateAsync` instead of calling `switchProfile` directly
+  // so `useProfileMutations`'s `onMutate` fires synchronously and flips
+  // the cached active *before* the IPC returns. Without the optimistic
+  // flip, `useCurrentProfile()` still returns the previous active during
+  // the IPC window and `useAddPlaybackQueueEntry` freezes the queue's
+  // `addedBy` to that old name — which is the bug the score saves look
+  // correct (they read `ProfileStore.active` on the server at IPC time,
+  // by then synced) while the queue sidebar reads "Added by <previous>".
   const reconciledRef = useRef(false);
   useEffect(() => {
     if (reconciledRef.current || profiles.isLoading) {
@@ -74,12 +82,12 @@ export const useGuestProfile = (): GuestProfile => {
     }
     reconciledRef.current = true;
     if (valid !== null) {
-      void switchProfile(valid).catch(() => {
+      mutateAsync({ name: valid, type: 'switch' }).catch(() => {
         writeStored(null);
         setStored(null);
       });
     }
-  }, [valid, profiles.isLoading]);
+  }, [valid, profiles.isLoading, mutateAsync]);
 
   const switchTo = useCallback(
     async (name: string): Promise<void> => {

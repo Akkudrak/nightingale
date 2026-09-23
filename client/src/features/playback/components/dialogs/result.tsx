@@ -1,5 +1,7 @@
 import { useDialogNav } from '@/features/menu/hooks/use-dialog-nav';
+import type { RecordingTake } from '@/features/playback/hooks/use-playback-result';
 import { topScoresForSong } from '@/features/playback/utils/result';
+import { SaveRecordingButton } from '@/features/recordings/components/save-recording-button';
 import { Stars } from '@/shared/components/shared/stars';
 import { Button } from '@/shared/components/ui/button';
 import {
@@ -35,6 +37,10 @@ type Props = {
   scores: ScoreRecord[];
   activeProfile: string | null;
   nextPending: boolean;
+  recording: RecordingTake | null;
+  /** Unix seconds at which the score was recorded. Forwarded to the save
+   *  button so the persisted recording carries the same join key. */
+  playedAt: number;
   exitLabel: string;
   onBack: () => void;
   onNext?: () => void;
@@ -47,6 +53,8 @@ export const ResultDialog = ({
   scores,
   activeProfile,
   nextPending,
+  recording,
+  playedAt,
   exitLabel,
   onBack,
   onNext,
@@ -126,37 +134,49 @@ export const ResultDialog = ({
             </>
           ) : null}
 
-          <DialogFooter className="mt-2 sm:justify-center">
-            <Button
-              type="button"
-              variant="outline"
-              className={cn('w-full sm:w-auto', NO_FOCUS_RING, open && focusedIndex === 0 && RING)}
-              disabled={nextPending}
-              onClick={onBack}
-            >
-              {exitLabel}
-            </Button>
-            {onNext ? (
+          <DialogFooter className="mt-2 flex-col gap-2 sm:justify-center">
+            <SaveRecordingButton
+              song={song}
+              score={score}
+              recording={recording}
+              playedAt={playedAt}
+            />
+            <div className="flex w-full gap-2 sm:w-auto">
               <Button
                 type="button"
+                variant="outline"
                 className={cn(
                   'w-full sm:w-auto',
                   NO_FOCUS_RING,
-                  open && focusedIndex === 1 && RING,
+                  open && focusedIndex === 0 && RING,
                 )}
                 disabled={nextPending}
-                aria-busy={nextPending}
-                onClick={onNext}
+                onClick={onBack}
               >
-                {nextPending ? (
-                  <>
-                    <Spinner className="size-4" /> Preparing…
-                  </>
-                ) : (
-                  'Next Song'
-                )}
+                {exitLabel}
               </Button>
-            ) : null}
+              {onNext ? (
+                <Button
+                  type="button"
+                  className={cn(
+                    'w-full sm:w-auto',
+                    NO_FOCUS_RING,
+                    open && focusedIndex === 1 && RING,
+                  )}
+                  disabled={nextPending}
+                  aria-busy={nextPending}
+                  onClick={onNext}
+                >
+                  {nextPending ? (
+                    <>
+                      <Spinner className="size-4" /> Preparing…
+                    </>
+                  ) : (
+                    'Next Song'
+                  )}
+                </Button>
+              ) : null}
+            </div>
           </DialogFooter>
         </div>
       </DialogContent>

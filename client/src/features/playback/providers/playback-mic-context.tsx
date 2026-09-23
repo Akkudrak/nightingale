@@ -2,6 +2,10 @@
  * Owns everything mic-shaped during playback: device selection, pitch capture,
  * monitor toggle, reactive shader uniforms, and the pitch-scoring series/score.
  *
+ * Also silently captures the microphone stream into a per-session PCM buffer
+ * so the result dialog can offer a "Save recording" action without forcing
+ * the user to opt in before the song starts.
+ *
  * Reads playback state (isReady, isPlaying, paused) from the transport context
  * to gate hardware capture, and persists user toggles to the app config.
  */
@@ -20,6 +24,10 @@ import { toast } from 'sonner';
 
 import { useMicCapture, useMicPitch } from '@/features/microphone/hooks/use-mic-pitch';
 import { useMicReactive, type MicReactiveRef } from '@/features/microphone/hooks/use-mic-reactive';
+import {
+  useMicRecorder,
+  type MicRecorderSnapshot,
+} from '@/features/microphone/hooks/use-mic-recorder';
 import { useMicDevices } from '@/features/microphone/queries/use-mic-devices';
 import { usePitchScoring } from '@/features/playback/hooks/use-pitch-scoring';
 import { usePlaybackConfigPersist } from '@/features/playback/hooks/use-playback-config-persist';
@@ -43,6 +51,7 @@ export type PlaybackMicState = {
   micCaptureActive: boolean;
   micPitchActive: boolean;
   micReady: boolean;
+  recorder: MicRecorderSnapshot;
 };
 
 export type PlaybackMicActions = {
@@ -50,6 +59,12 @@ export type PlaybackMicActions = {
   handleToggleMic: () => void;
   handleCycleMic: () => void;
   handleToggleMicMonitor: () => void;
+  /**
+   * Pulls the captured PCM buffer off the recorder and clears the
+   * internal state. Returns `null` when no frames were captured (e.g.
+   * the user never turned the mic on).
+   */
+  takeRecording: () => { samples: Float32Array; sampleRate: number; durationSecs: number } | null;
 };
 
 const MicStateContext = createContext<PlaybackMicState | null>(null);
@@ -119,6 +134,27 @@ export function PlaybackMicProvider({ config, children }: PlaybackMicProviderPro
   } = useMicPitch(micPitchEnabled);
   const reactiveRef = useMicReactive(micPitchEnabled);
 
+  // The recorder piggy-backs on the same mic capture: we don't open a
+  // second stream. Auto-start the moment playback becomes live and the
+  // mic is on, stop when the song ends so the result dialog has a
+  // PCM buffer ready to encode.
+  const recorder = useMicRecorder();
+
+  useEffect(() => {
+    // Reset the recorder whenever the transport leaves the live state
+    // — the next `playbackReady` effect kicks off a fresh capture.
+    if (!isReady) {
+      recorder.cancelRecording();
+    }
+  }, [isReady, recorder]);
+
+  useEffect(() => {
+    if (!isReady || !isPlaying || paused || !micUserEnabled) {
+      return;
+    }
+    recorder.startRecording();
+  }, [isReady, isPlaying, paused, micUserEnabled, recorder]);
+
   const { series, score } = usePitchScoring(
     { isReady, duration, getReferenceBuffer: getScoringBuffer, subscribe },
     latestPitch,
@@ -173,6 +209,10 @@ export function PlaybackMicProvider({ config, children }: PlaybackMicProviderPro
     });
   }, [persistConfig, micUserEnabled]);
 
+  const takeRecording = useCallback(() => {
+    return recorder.stopRecording();
+  }, [recorder]);
+
   const stateValue = useMemo<PlaybackMicState>(() => {
     const micReady = micCaptureActive && micPitchActive && micUserEnabled;
     const selectedMic = micDevices.find((device) => device.deviceId === selectedMicId);
@@ -187,6 +227,7 @@ export function PlaybackMicProvider({ config, children }: PlaybackMicProviderPro
       micCaptureActive,
       micPitchActive,
       micReady,
+      recorder: recorder.snapshot,
     };
   }, [
     micUserEnabled,
@@ -197,6 +238,7 @@ export function PlaybackMicProvider({ config, children }: PlaybackMicProviderPro
     micCaptureActive,
     micPitchActive,
     micDevices,
+    recorder.snapshot,
   ]);
 
   const actionsValue = useMemo<PlaybackMicActions>(
@@ -205,8 +247,9 @@ export function PlaybackMicProvider({ config, children }: PlaybackMicProviderPro
       handleToggleMic,
       handleCycleMic,
       handleToggleMicMonitor,
+      takeRecording,
     }),
-    [reactiveRef, handleToggleMic, handleCycleMic, handleToggleMicMonitor],
+    [reactiveRef, handleToggleMic, handleCycleMic, handleToggleMicMonitor, takeRecording],
   );
 
   return (

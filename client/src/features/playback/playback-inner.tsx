@@ -92,6 +92,8 @@ function PlaybackLayout({ song, config, queuePlayback, sessionPlayback }: Playba
         scores={result.scores}
         activeProfile={result.activeProfile}
         nextPending={result.nextPending}
+        recording={result.recording}
+        playedAt={result.playedAt}
         exitLabel={sessionPlayback ? 'Exit Playback' : 'Back to Menu'}
         onBack={result.onBack}
         onNext={result.onNext}
