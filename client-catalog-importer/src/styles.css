@@ -1,0 +1,259 @@
+:root {
+  color-scheme: dark;
+  --bg: #1c1d1f;
+  --bg-elevated: #26282b;
+  --bg-input: #1f2023;
+  --border: #383b3f;
+  --border-strong: #4a4e54;
+  --text: #e8e9ea;
+  --text-muted: #9ba0a6;
+  --accent: #4f8cff;
+  --accent-pressed: #3a6fc7;
+  --error: #ff6c6c;
+  --ok: #5acf82;
+
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body {
+  padding: 16px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button.primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--accent-pressed);
+  border-color: var(--accent-pressed);
+}
+
+button.primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+button:not(.primary):not(.icon) {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 16px;
+  border-radius: 6px;
+}
+
+button:not(.primary):not(.icon):hover {
+  border-color: var(--border-strong);
+}
+
+button.icon {
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  font-size: 18px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+button.icon:hover {
+  color: var(--text);
+  background: var(--bg-elevated);
+}
+
+input[type='text'] {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 6px;
+  font: inherit;
+  cursor: pointer;
+  min-width: 0;
+}
+
+input[type='text']:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+p {
+  margin: 8px 0;
+  color: var(--text-muted);
+}
+
+p.error {
+  color: var(--error);
+}
+
+p.muted {
+  margin: 0;
+}
+
+code {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+legend {
+  padding: 0;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+
+dl.folders {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+dl.folders > div {
+  display: grid;
+  gap: 4px;
+}
+
+dl.folders dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+dl.folders dd {
+  margin: 0;
+  font-family:
+    ui-monospace, 'SF Mono', 'Consolas', 'Cascadia Code', monospace;
+  font-size: 12px;
+  word-break: break-all;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+ul.imports {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+ul.imports li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+}
+
+ul.imports .text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.dot.ok {
+  background: var(--ok);
+}
+
+.dot.err {
+  background: var(--error);
+}

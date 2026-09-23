@@ -59,7 +59,11 @@ pub fn build_catalog_zip(song: &Song) -> Result<Vec<u8>, NightingaleError> {
 /// filesystem-safe, lowercase, dash-separated folder name; the random
 /// suffix is a 6-char lowercase a-z0-9 string to avoid slug collisions
 /// across exports.
-fn slug_root_folder(title: &str, artist: &str) -> String {
+///
+/// Public so the standalone catalog importer can reuse the same
+/// naming convention when it lands `.mp3` files into the user's
+/// music folder (see [`crate::catalog_import`]).
+pub fn slug_root_folder(title: &str, artist: &str) -> String {
     let combined = format!("{title}-{artist}");
     let mut slug: String = combined
         .chars()

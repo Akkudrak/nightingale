@@ -1,0 +1,43 @@
+[package]
+name = "catalog-importer"
+version = "0.1.0"
+description = "Standalone catalog-song importer for Nightingale 1.0.0+."
+authors = ["rzru <rzzzzru@gmail.com>"]
+license = "GPL-3.0"
+edition = "2021"
+
+[lib]
+name = "importer_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Shared domain logic.
+app-core = { path = "../../app-core" }
+
+# Tauri 2 core + the plugins we actually use.
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+
+# Std / utility.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+url = "2"
+thiserror = "1"
+dirs = "6"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+dotenvy = "0.15.7"
+
+# HTTP for downloading the catalog zip + cover art. `native-tls` mirrors
+# the main app's choice so the importer survives Avast-MITM proxies on
+# Windows hosts (see rust-tls-avast-windows.md in the project memory).
+ureq = { version = "3", default-features = false, features = ["json", "native-tls"] }
+
+[lints]
+workspace = true

@@ -19,7 +19,10 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use rusqlite::Connection;
+
 use crate::cache::nightingale_dir;
+use crate::error::NightingaleError;
 
 mod analysis_queue;
 mod connection;
@@ -82,4 +85,26 @@ pub(crate) fn reconnect_library_at_root(root: &Path) -> Result<(), String> {
     let conn = connection::open_connection(&db_path)
         .map_err(|e| format!("failed opening migrated songs db: {e}"))?;
     connection::replace_or_install(conn)
+}
+
+/// Open (or create) a `songs.db` at an arbitrary `system_folder` for
+/// the standalone catalog importer.
+///
+/// The returned `Connection` is **not** installed into the
+/// process-wide `LIBRARY_DB` so it does not collide with whatever the
+/// main Nightingale app (if any) has open in the same process.
+/// Caller is responsible for dropping the connection when done.
+///
+/// Schema migrations are intentionally skipped (`MigrateMode::ProbeOnly`)
+/// so the user's existing `songs.db` is never promoted forward
+/// behind their back. The importer writes only the columns that
+/// `PRAGMA table_info(songs)` reports as already present.
+pub fn open_library_db_for_import(system_folder: &Path) -> Result<Connection, NightingaleError> {
+    if !system_folder.is_dir() {
+        std::fs::create_dir_all(system_folder)
+            .map_err(|e| NightingaleError::Other(format!("create system folder: {e}")))?;
+    }
+    let db_path = system_folder.join("songs.db");
+    connection::open_connection_with_mode(&db_path, migrations::MigrateMode::ProbeOnly)
+        .map_err(|e| NightingaleError::Other(format!("open user songs.db: {e}")))
 }

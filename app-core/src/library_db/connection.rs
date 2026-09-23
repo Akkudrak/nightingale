@@ -11,7 +11,7 @@ use std::sync::{Mutex, OnceLock};
 use rusqlite::Connection;
 use rusqlite::functions::FunctionFlags;
 
-use super::migrations::{configure, run_migrations};
+use super::migrations::{run_migrations_with_mode, MigrateMode};
 use super::text::fold_accents;
 
 static LIBRARY_DB: OnceLock<Mutex<Connection>> = OnceLock::new();
@@ -50,12 +50,24 @@ pub(super) fn replace_or_install(conn: Connection) -> Result<(), String> {
 }
 
 pub(super) fn open_connection(path: &Path) -> rusqlite::Result<Connection> {
+    open_connection_with_mode(path, MigrateMode::Forward)
+}
+
+/// Open the SQLite file at `path` with the given migration mode,
+/// **without** installing the connection into the process-wide
+/// `LIBRARY_DB` `OnceLock`. Used by the standalone catalog importer
+/// ([`super::open_library_db_for_import`]) so a user-supplied
+/// `songs.db` can be opened at any `PRAGMA user_version` without
+/// being silently promoted to the current schema.
+pub(super) fn open_connection_with_mode(
+    path: &Path,
+    mode: MigrateMode,
+) -> rusqlite::Result<Connection> {
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
     let conn = Connection::open(path)?;
-    configure(&conn)?;
-    run_migrations(&conn)?;
+    run_migrations_with_mode(&conn, mode)?;
     install_text_functions(&conn)?;
     Ok(conn)
 }

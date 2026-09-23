@@ -571,7 +571,12 @@ fn upsert_song(song: &Song) -> Result<(), NightingaleError> {
     Ok(())
 }
 
-fn blake3_short_hex(bytes: &[u8]) -> String {
+/// blake3 of `bytes`, hex-encoded, first 32 chars (16 bytes / 128 bits).
+///
+/// Used for both `file_hash` (audio) and `album_art_path` filename
+/// (cover art). Public so the catalog-import crate can reuse it
+/// without pulling `blake3` directly.
+pub fn blake3_short_hex(bytes: &[u8]) -> String {
     let mut hasher = Hasher::new();
     hasher.update(bytes);
     hasher.finalize().to_hex()[..32].to_string()

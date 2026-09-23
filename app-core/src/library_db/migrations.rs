@@ -54,7 +54,29 @@ pub(super) fn configure(conn: &Connection) -> rusqlite::Result<()> {
     )
 }
 
-pub(super) fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
+/// Migration mode passed to [`run_migrations_with_mode`].
+///
+/// The standalone catalog importer ([`super::open_library_db_for_import`])
+/// opens pre-existing user `songs.db` files at unknown `PRAGMA user_version`
+/// values and must NOT promote them forward behind the user's back — the
+/// user controls schema upgrades via the main Nightingale app. Use
+/// `MigrateMode::ProbeOnly` to apply connection-level `PRAGMA`s (`WAL`,
+/// `foreign_keys`, etc.) without running any `ALTER TABLE`.
+pub(super) enum MigrateMode {
+    ProbeOnly,
+    Forward,
+}
+
+pub(super) fn run_migrations_with_mode(
+    conn: &Connection,
+    mode: MigrateMode,
+) -> rusqlite::Result<()> {
+    configure(conn)?;
+    if matches!(mode, MigrateMode::ProbeOnly) {
+        // Honour whatever `PRAGMA user_version` the user's DB already
+        // carries; do not bump it, do not run schema migrations.
+        return Ok(());
+    }
     let v: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     if v >= SCHEMA_VERSION {
         return Ok(());
