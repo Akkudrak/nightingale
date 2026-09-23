@@ -1,8 +1,10 @@
 mod analyzer;
 mod cache;
 pub mod catalog_export;
+pub mod catalog_import;
 mod config;
 mod error;
+pub mod importer_config;
 mod library_db;
 mod library_menu;
 mod library_model;
@@ -13,6 +15,7 @@ mod playback;
 mod playback_queue;
 mod playback_session;
 mod profile;
+mod recording;
 mod scanner;
 mod secret;
 mod song;
@@ -32,8 +35,15 @@ pub use cache::{
     clear_videos, default_nightingale_dir, nightingale_dir, normalized_target_path, same_path,
     set_default_data_path,
 };
+pub use catalog_export::{CATALOG_ZIP_SCHEMA_VERSION, slug_root_folder};
+pub use catalog_import::{
+    CatalogImportDone, CatalogImportError, import_catalog_zip,
+};
 pub use config::{AppConfig, LibrarySource};
-pub use library_db::{init_library, library_db_path};
+pub use importer_config::{
+    ImporterConfig, default_config_path, load as load_importer_config, save as save_importer_config,
+};
+pub use library_db::{init_library, library_db_path, open_library_db_for_import};
 pub use library_menu::{LibraryMenuItem, LibraryMenuItems, load_library_menu_items};
 pub use library_model::{
     LibraryMenuFilters, LoadSongsParams, SongSort, SongSortColumn, SongTarget, SongsMeta,
@@ -54,8 +64,10 @@ pub use playback::{
 pub use playback_queue::{PlaybackQueue, PlaybackQueueEntry, QueueItemInput};
 pub use playback_session::{PlaybackSession, PlaybackSessionStore, YouTubeTarget};
 pub use profile::ProfileStore;
+pub use recording::{AddRecordingInput, RecordingRecord, RecordingStore, is_within_recordings, recordings_root};
 pub use scanner::start_scan;
 pub use song::{Song, SongOrigin};
+pub use song_export::blake3_short_hex;
 pub use source::{
     JellyfinAuth, JellyfinSource, MediaSource, NavidromeAuth, NavidromeSource, PlexAuth,
     PlexSource, SourceKind, active_source,

@@ -23,6 +23,7 @@ base64 = "0.22"
 md-5 = "0.10"
 unicode-normalization = { version = "0.1", default-features = false }
 zip = { version = "2", default-features = false, features = ["deflate"] }
+thiserror = "1"
 
 [build-dependencies]
 dotenvy = "0.15"

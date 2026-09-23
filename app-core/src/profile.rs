@@ -89,15 +89,17 @@ impl ProfileStore {
         self.save();
     }
 
-    pub fn add_score(&mut self, song_hash: &str, score: u32) {
+    pub fn add_score(&mut self, song_hash: &str, score: u32, played_at: Option<u64>) {
         let profile = match &self.active {
             Some(p) => p.clone(),
             None => return,
         };
-        let played_at = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
+        let played_at = played_at.unwrap_or_else(|| {
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0)
+        });
         self.scores.push(ScoreRecord {
             profile,
             song_hash: song_hash.to_string(),

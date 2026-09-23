@@ -185,6 +185,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "thiserror 1.0.69",
  "tiny_http",
  "tracing",
  "ts-rs",
@@ -699,6 +700,28 @@ checksum = "374b7c592d9c00c1f4972ea58390ac6b18cbb6ab79011f3bdc90a0b82ca06b77"
 dependencies = [
  "serde",
  "toml 0.9.12+spec-1.1.0",
+]
+
+[[package]]
+name = "catalog-importer"
+version = "0.1.0"
+dependencies = [
+ "app-core",
+ "base64 0.22.1",
+ "dirs",
+ "dotenvy",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-deep-link",
+ "tauri-plugin-dialog",
+ "tauri-plugin-single-instance",
+ "thiserror 1.0.69",
+ "tracing",
+ "tracing-subscriber",
+ "ureq",
+ "url",
 ]
 
 [[package]]
