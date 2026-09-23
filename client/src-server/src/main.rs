@@ -4,6 +4,7 @@ mod events;
 mod jukebox;
 mod media;
 mod network_info;
+mod recording;
 mod state;
 mod static_files;
 mod ws;
@@ -80,6 +81,11 @@ async fn main() -> Result<(), String> {
         .route("/api/cmd/:name", post(commands::handle_cmd))
         .route("/api/asset", get(media::handle_asset))
         .route("/media/:hash/:kind", get(media::handle_hashed))
+        // Recording playback: id-keyed because RecordingStore assigns ids
+        // via an atomic counter, not by hashing the WAV contents. Lives
+        // under /api/ so the same auth/origin assumptions as other API
+        // routes apply.
+        .route("/api/recording/:id", get(recording::handle_recording))
         .route("/ws", any(ws::handle_upgrade))
         .fallback(static_files::handle)
         .with_state(state.clone());

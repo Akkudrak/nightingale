@@ -1,9 +1,9 @@
 use app_core::{
     ensure_mp3_stems_ready_payload, load_lyrics_file, save_lyrics_and_realign,
-    search_lrclib_for_hash, shift_key_done_payload, shift_tempo_done_payload, AnalysisQueue,
-    AppConfig, CacheStats, LibraryMenuItems, LibrarySource, LoadSongsParams,
-    PixabayVideoDownloaded, PlaybackSession, ProfileStore, QueueItemInput, SongTarget, SongsStore,
-    YouTubeTarget,
+    search_lrclib_for_hash, shift_key_done_payload, shift_tempo_done_payload, AddRecordingInput,
+    AnalysisQueue, AppConfig, CacheStats, LibraryMenuItems, LibrarySource, LoadSongsParams,
+    PixabayVideoDownloaded, PlaybackSession, ProfileStore, QueueItemInput, RecordingStore,
+    SongTarget, SongsStore, YouTubeTarget,
 };
 use axum::{
     extract::{Path as AxumPath, State},
@@ -104,10 +104,16 @@ async fn dispatch(state: AppState, name: &str, payload: Value) -> CmdResult {
             struct Args {
                 song_hash: String,
                 score: u32,
+                // Optional: when the client snapshots a single timestamp at
+                // song-finish time and reuses it for both `add_score` and
+                // `save_recording`, this lets the recording row join on
+                // `ScoreRecord.played_at` exactly. Falls back to server-side
+                // `now()` when absent.
+                played_at: Option<u64>,
             }
             let args: Args = deserialize(payload)?;
             let mut store = ProfileStore::load();
-            store.add_score(&args.song_hash, args.score);
+            store.add_score(&args.song_hash, args.score, args.played_at);
             Ok(Value::Null)
         }
         "add_favorite" => {
@@ -138,6 +144,44 @@ async fn dispatch(state: AppState, name: &str, payload: Value) -> CmdResult {
                 None => return Ok(Value::Null),
             };
             store.remove_favorite(&profile, &args.song_hash);
+            Ok(Value::Null)
+        }
+
+        // ── Recordings (microphone captures during playback) ────────────
+        // The client uploads a base64-encoded PCM/WAV blob plus the song
+        // metadata; we decode + write the WAV next to the index file in
+        // the data folder. Stays JSON to fit the existing /api/cmd
+        // dispatcher; a 3-minute 44.1kHz mono recording is ~16 MB raw,
+        // ~21 MB base64 — under axum's default body limit and well
+        // within any local-network budget.
+        "load_recordings" => {
+            let mut store = RecordingStore::load();
+            // Defensive sort so the history list always shows newest first
+            // regardless of how the on-disk file was assembled.
+            store.recordings.sort_by(|a, b| b.recorded_at.cmp(&a.recorded_at));
+            Ok(serde_json::to_value(&store.recordings).map_err(serde_err)?)
+        }
+        "save_recording" => {
+            let input: AddRecordingInput = deserialize(payload)?;
+            // Run on a blocking task because base64 decode + write of a
+            // multi-MB WAV can take a few hundred ms and we don't want
+            // it parked on the async runtime's worker.
+            let mut store = RecordingStore::load();
+            let id = tokio::task::spawn_blocking(move || store.add(input))
+                .await
+                .map_err(blocking_task_err)?
+                .map_err(ApiError::internal)?;
+            Ok(serde_json::to_value(id).map_err(serde_err)?)
+        }
+        "delete_recording" => {
+            #[derive(Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                id: String,
+            }
+            let args: Args = deserialize(payload)?;
+            let mut store = RecordingStore::load();
+            store.delete(&args.id);
             Ok(Value::Null)
         }
 
