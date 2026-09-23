@@ -10,6 +10,7 @@ mod playback;
 mod playback_queue;
 mod playback_session;
 mod profile;
+mod recording;
 mod scanner;
 mod song_export;
 mod vendor;
@@ -38,6 +39,7 @@ use profile::{
     add_favorite, add_score, create_profile, delete_profile, load_profiles, remove_favorite,
     switch_profile,
 };
+use recording::{delete_recording, get_recording_path, load_recordings, save_recording};
 use scanner::{
     clear_library_source, jellyfin_login, jellyfin_ping, load_analysis_queue,
     load_library_menu_items, load_songs, load_songs_by_hashes, load_songs_meta, navidrome_login,
@@ -242,6 +244,11 @@ pub fn run() {
             add_score,
             add_favorite,
             remove_favorite,
+            // Recordings (microphone captures during playback)
+            load_recordings,
+            save_recording,
+            delete_recording,
+            get_recording_path,
             // Playback queue
             load_playback_queue,
             add_playback_queue_entry,
@@ -354,6 +361,7 @@ pub fn run() {
 
             let window = WebviewWindowBuilder::from_config(app.handle(), window_config)
                 .map_err(|e| e.to_string())?
+                .visible(true)
                 .initialization_script(init_script)
                 .build()
                 .map_err(|e| e.to_string())?;
