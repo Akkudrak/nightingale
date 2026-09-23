@@ -4,6 +4,7 @@ import { Stars } from '@/shared/components/shared/stars';
 import { cn } from '@/shared/utils/cn';
 import { formatSeconds } from '@/shared/utils/format-duration';
 
+import { PreviewRowButton } from '../hooks/use-preview-row-button';
 import { AlbumArt } from '../shared/album-art';
 import { LanguageBadge } from '../shared/language-badge';
 import { StatusBadge } from '../shared/status-badge';
@@ -41,6 +42,7 @@ export const SongGridCard = memo(
             {formatSeconds(song.duration_secs)}
           </span>
           <div className="flex items-center gap-1">
+            <PreviewRowButton song={song} />
             <LanguageBadge language={song.language} />
             <StatusBadge song={song} queueStatus={queueStatus} />
           </div>

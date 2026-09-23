@@ -16,9 +16,12 @@ import { InfoDialog } from '@/features/menu/components/info';
 import { Sidebar } from '@/features/menu/components/sidebar/sidebar';
 import { useDialog, type DialogMode } from '@/features/menu/hooks/use-dialog';
 import { useMenuNav } from '@/features/menu/hooks/use-menu-nav';
+import { PreviewBar } from '@/features/preview/components/preview-bar';
+import { useStopPreviewOnPlayback } from '@/features/preview/hooks/use-stop-preview-on-playback';
 import { CreateProfileDialog } from '@/features/profiles/components/create';
 import { LeaderboardsDialog } from '@/features/profiles/components/leaderboards';
 import { SelectProfileDialog } from '@/features/profiles/components/select';
+import { RecordingsDialog } from '@/features/recordings/components/recordings-dialog';
 import { Setup } from '@/features/setup/components/setup';
 import { useShouldRunSetup } from '@/features/setup/hooks/use-should-run-setup';
 import { JellyfinConnectDialog } from '@/features/sources/components/jellyfin-connect';
@@ -81,6 +84,10 @@ export const MenuLayout = () => {
   }, [setMode]);
 
   useMenuNav({ overlayOpen, onBack });
+  // The karaoke engine owns the audio output device once playback is live.
+  // Hook the listener at the menu level so the preview bar loses the device
+  // whether the queue was started from the menu or a deep-linked route.
+  useStopPreviewOnPlayback();
 
   return (
     <Sidebar>
@@ -89,6 +96,7 @@ export const MenuLayout = () => {
       <SelectProfileDialog />
       <InfoDialog />
       <LeaderboardsDialog />
+      <RecordingsDialog />
       <UpdateDialog />
       <DonateDialog />
       <SelectLanguageDialog />
@@ -99,6 +107,7 @@ export const MenuLayout = () => {
       <SidebarInset>
         <Outlet />
       </SidebarInset>
+      <PreviewBar />
     </Sidebar>
   );
 };

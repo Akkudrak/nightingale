@@ -6,6 +6,7 @@ import type { QueuedStatus } from '@/types/QueuedStatus';
 import type { Song } from '@/types/Song';
 import type { SongSortColumn } from '@/types/SongSortColumn';
 
+import { PreviewRowButton } from './hooks/use-preview-row-button';
 import { AlbumArt } from './shared/album-art';
 import { LanguageBadge } from './shared/language-badge';
 import { StatusBadge } from './shared/status-badge';
@@ -82,5 +83,12 @@ export const SONG_COLUMNS: SongColumn[] = [
     thClassName: 'song-table-status px-2 py-2 text-right font-medium',
     tdClassName: 'song-table-status px-2 py-2 text-right',
     cell: (song, queueStatus) => <StatusBadge song={song} queueStatus={queueStatus} />,
+  },
+  {
+    id: 'preview',
+    header: <span className="sr-only">Preview</span>,
+    thClassName: 'song-table-preview px-2 py-2 text-right font-medium',
+    tdClassName: 'song-table-preview px-2 py-2 text-right',
+    cell: (song) => <PreviewRowButton song={song} />,
   },
 ];
