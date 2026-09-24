@@ -67,6 +67,12 @@ use crate::song_export::blake3_short_hex;
 const AUDIO_ENTRY: &str = "song.mp3";
 const METADATA_ENTRY: &str = "metadata.json";
 const MAX_COVER_BYTES: u64 = 5 * 1024 * 1024; // 5 MiB; mirrors the catalog's own upload cap
+/// Cap on the size of an inbound catalog ZIP we will accept. Real catalog
+/// songs are well under 20 MiB; the 64 MiB ceiling is a defence-in-depth
+/// guard against zip-bombs and "dragged the wrong file" mistakes, not a
+/// per-song size budget. Used by the standalone importer's drag-and-drop
+/// handler before it ever calls [`std::fs::read`].
+pub const MAX_ZIP_BYTES: u64 = 64 * 1024 * 1024;
 
 /// Result of a single import. Mirrors `song_export::DeepLinkImportDone`'s
 /// shape on purpose so the React UI can switch on `ok` + optional
@@ -780,5 +786,13 @@ mod tests {
         assert_eq!(meta.artist, "Beyoncé");
         assert_eq!(meta.schema_version, 1);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn max_zip_bytes_is_64_mib() {
+        // The drop handler in client-catalog-importer relies on this
+        // exact value for its pre-flight size guard. Pin it here so any
+        // accidental change triggers a test failure.
+        assert_eq!(MAX_ZIP_BYTES, 64 * 1024 * 1024);
     }
 }

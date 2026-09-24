@@ -43,7 +43,10 @@ pub use config::{AppConfig, LibrarySource};
 pub use importer_config::{
     ImporterConfig, default_config_path, load as load_importer_config, save as save_importer_config,
 };
-pub use library_db::{init_library, library_db_path, open_library_db_for_import};
+pub use library_db::{
+    init_library, library_db_path, list_analyzed_songs, load_song_by_hash_for_export,
+    open_library_db_for_import,
+};
 pub use library_menu::{LibraryMenuItem, LibraryMenuItems, load_library_menu_items};
 pub use library_model::{
     LibraryMenuFilters, LoadSongsParams, SongSort, SongSortColumn, SongTarget, SongsMeta,

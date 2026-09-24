@@ -19,6 +19,8 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::song::Song;
+
 use rusqlite::Connection;
 
 use crate::cache::nightingale_dir;
@@ -107,4 +109,41 @@ pub fn open_library_db_for_import(system_folder: &Path) -> Result<Connection, Ni
     let db_path = system_folder.join("songs.db");
     connection::open_connection_with_mode(&db_path, migrations::MigrateMode::ProbeOnly)
         .map_err(|e| NightingaleError::Other(format!("open user songs.db: {e}")))
+}
+
+/// Read every analysed song from the user's `songs.db` without
+/// touching the singleton `Connection` or running any schema
+/// migration. Used by the standalone catalog importer's "export your
+/// own songs" feature to enumerate candidates for batch bundle
+/// generation.
+///
+/// The returned `Song`s retain their full payload (path, blake3 hash,
+/// cover, language, etc.) so the caller can feed them straight into
+/// [`crate::catalog_export::build_catalog_zip`]. Sort order matches
+/// [`super::songs::load_all_songs`]: artist/title case-insensitive.
+pub fn list_analyzed_songs(system_folder: &Path) -> Result<Vec<Song>, NightingaleError> {
+    let conn = open_library_db_for_import(system_folder)?;
+    let songs = songs::load_all_songs_for_connection(&conn)
+        .map_err(|e| NightingaleError::Other(format!("load songs: {e}")))?
+        .into_iter()
+        .filter(|s| s.is_analyzed)
+        .collect();
+    Ok(songs)
+}
+
+/// Single-hash song lookup on the user's `songs.db` through a fresh
+/// ProbeOnly connection. Companion to [`list_analyzed_songs`] for the
+/// exporter path: the command lists candidates, the user picks some,
+/// and each pick is resolved through this helper.
+///
+/// Returns `Ok(None)` when the row vanished (user deleted the song
+/// between the list call and the export) — the caller maps that to a
+/// per-zip failure row in the UI without aborting the batch.
+pub fn load_song_by_hash_for_export(
+    system_folder: &Path,
+    file_hash: &str,
+) -> Result<Option<Song>, NightingaleError> {
+    let conn = open_library_db_for_import(system_folder)?;
+    songs::load_song_by_hash_for_connection(&conn, file_hash)
+        .map_err(|e| NightingaleError::Other(format!("load song {file_hash}: {e}")))
 }

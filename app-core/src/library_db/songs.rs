@@ -7,6 +7,7 @@
 //! without copy-pasting the column lists.
 
 use rusqlite::params;
+use rusqlite::{Connection, OptionalExtension};
 
 use crate::song::{Song, TranscriptSource};
 
@@ -298,4 +299,138 @@ pub(crate) fn load_all_songs() -> rusqlite::Result<Vec<Song>> {
         let rows = stmt.query_map([], load_song_from_payload_column)?;
         rows.collect()
     })
+}
+
+/// Same query as [`load_all_songs`] but on a caller-supplied
+/// `Connection`. Used by the standalone catalog importer (and any other
+/// tool that opens a user `songs.db` with [`MigrateMode::ProbeOnly`](crate::library_db::migrations::MigrateMode))
+/// without going through the process-wide singleton, so the importer's
+/// read does not collide with a `Connection` the main Nightingale app
+/// may have open on the same file.
+pub(crate) fn load_all_songs_for_connection(c: &Connection) -> rusqlite::Result<Vec<Song>> {
+    let mut stmt = c.prepare(
+        "SELECT payload FROM songs ORDER BY artist COLLATE NOCASE, title COLLATE NOCASE",
+    )?;
+    let rows = stmt.query_map([], load_song_from_payload_column)?;
+    rows.collect()
+}
+
+/// Single-hash lookup on a caller-supplied `Connection`. Mirrors
+/// [`load_song_by_hash`] but without touching the singleton, so the
+/// importer can use this against its own ProbeOnly connection.
+pub(crate) fn load_song_by_hash_for_connection(
+    c: &Connection,
+    file_hash: &str,
+) -> rusqlite::Result<Option<Song>> {
+    let mut stmt = c.prepare("SELECT payload FROM songs WHERE file_hash = ?1 LIMIT 1")?;
+    stmt.query_row([file_hash], load_song_from_payload_column)
+        .optional()
+}
+
+#[cfg(test)]
+mod tests_for_connection {
+    //! Tests for [`load_all_songs_for_connection`] and
+    //! [`load_song_by_hash_for_connection`]. They open an in-memory
+    //! `Connection`, build the minimal `songs` table required by
+    //! [`INSERT_SONG_SQL`], and round-trip a couple of rows through
+    //! the JSON payload column. FTS5 and indexes from the full schema
+    //! are not needed because these helpers only read the `payload`
+    //! column.
+    use super::*;
+    use crate::song::{Song, SongOrigin};
+    use rusqlite::Connection;
+
+    fn make_song(file_hash: &str, title: &str, artist: &str, is_analyzed: bool) -> Song {
+        Song {
+            path: std::path::PathBuf::from(format!("/music/{file_hash}.mp3")),
+            file_hash: file_hash.to_string(),
+            title: title.to_string(),
+            artist: artist.to_string(),
+            album: "Test Album".to_string(),
+            duration_secs: 180.0,
+            album_art_path: None,
+            is_analyzed,
+            language: Some("en".to_string()),
+            transcript_source: None,
+            key: None,
+            override_key: None,
+            tempo: 1.0,
+            key_offset: 0,
+            is_video: false,
+            usdx: None,
+            origin: SongOrigin::LocalFile,
+            no_stems: false,
+            genre: None,
+            added_at: 0,
+        }
+    }
+
+    fn fresh_conn() -> Connection {
+        let conn = Connection::open_in_memory().expect("open :memory:");
+        conn.execute_batch(
+            "CREATE TABLE songs (
+                id INTEGER PRIMARY KEY,
+                path TEXT NOT NULL UNIQUE,
+                file_hash TEXT NOT NULL,
+                title TEXT NOT NULL,
+                artist TEXT NOT NULL,
+                album TEXT NOT NULL,
+                duration_secs REAL NOT NULL,
+                album_art_path TEXT,
+                is_analyzed INTEGER NOT NULL,
+                language TEXT,
+                transcript_source TEXT,
+                is_video INTEGER NOT NULL,
+                genre TEXT,
+                added_at INTEGER NOT NULL DEFAULT 0,
+                payload TEXT NOT NULL
+            );
+            CREATE INDEX idx_songs_file_hash ON songs(file_hash);",
+        )
+        .expect("create songs table");
+        conn
+    }
+
+    fn insert(conn: &Connection, song: &Song) {
+        let mut stmt = conn
+            .prepare(INSERT_SONG_SQL)
+            .expect("prepare INSERT_SONG_SQL");
+        insert_song_row_prepared(&mut stmt, song).expect("insert row");
+    }
+
+    #[test]
+    fn load_all_songs_for_connection_round_trips_rows() {
+        let conn = fresh_conn();
+        let a = make_song("aaa", "Alpha", "Artist A", true);
+        let b = make_song("bbb", "Beta", "Artist B", false);
+        insert(&conn, &a);
+        insert(&conn, &b);
+
+        let rows = load_all_songs_for_connection(&conn).expect("load");
+        assert_eq!(rows.len(), 2);
+        // Order is artist/title COLLATE NOCASE ascending — "Artist A" < "Artist B".
+        assert_eq!(rows[0].file_hash, "aaa");
+        assert_eq!(rows[1].file_hash, "bbb");
+        // Round-trip preserves the JSON payload fields used downstream.
+        assert!(rows[0].is_analyzed);
+        assert_eq!(rows[0].title, "Alpha");
+        assert!(!rows[1].is_analyzed);
+    }
+
+    #[test]
+    fn load_song_by_hash_for_connection_returns_some_and_none() {
+        let conn = fresh_conn();
+        let a = make_song("aaa", "Alpha", "Artist A", true);
+        insert(&conn, &a);
+
+        let found = load_song_by_hash_for_connection(&conn, "aaa")
+            .expect("query")
+            .expect("present");
+        assert_eq!(found.title, "Alpha");
+        assert_eq!(found.artist, "Artist A");
+
+        let missing = load_song_by_hash_for_connection(&conn, "does-not-exist")
+            .expect("query");
+        assert!(missing.is_none());
+    }
 }
