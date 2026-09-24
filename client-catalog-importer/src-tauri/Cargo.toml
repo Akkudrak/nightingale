@@ -18,7 +18,12 @@ tauri-build = { version = "2", features = [] }
 app-core = { path = "../../app-core" }
 
 # Tauri 2 core + the plugins we actually use.
-tauri = { version = "2", features = [] }
+# `custom-protocol` is REQUIRED for release builds: without it the webview
+# tries to load `devUrl` (http://localhost:1421/) at runtime, finds nothing
+# listening, and surfaces ERR_CONNECTION_REFUSED as "Vaya… no se puede
+# acceder a esta página". Enabling the feature swaps in the asset-protocol
+# handler so `frontendDist/../dist` is served from the binary itself.
+tauri = { version = "2", features = ["custom-protocol"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-deep-link = "2"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
