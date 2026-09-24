@@ -257,3 +257,8 @@ ul.imports .text {
 .dot.err {
   background: var(--error);
 }
+
+body.is-dragging .card {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(79, 140, 255, 0.35);
+}

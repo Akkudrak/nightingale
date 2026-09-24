@@ -14,6 +14,7 @@
 
 mod commands;
 mod deep_link;
+mod drag_drop;
 mod logging;
 
 use tauri::Manager;
@@ -42,6 +43,7 @@ pub fn run() {
         ])
         .setup(|app| {
             deep_link::register(app.handle());
+            drag_drop::register(app.handle());
             Ok(())
         })
         .run(tauri::generate_context!())

@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react';
 
 import { readImporterConfig, type ImporterConfig } from '@/bridge/importer-config';
+import { subscribeToImporterDragDrop } from '@/bridge/drag-drop';
 import { SetupWizard } from '@/components/SetupWizard';
 import { StatusView } from '@/components/StatusView';
 
@@ -30,6 +31,7 @@ const fallbackConfig: ImporterConfig = {
 
 export const App = () => {
   const [view, setView] = useState<View>({ kind: 'loading' });
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +50,29 @@ export const App = () => {
       cancelled = true;
     };
   }, []);
+
+  // Body-class hook for drag-drop visual feedback. The drop itself is
+  // consumed by the Rust `drag_drop` handler — by the time the `drop`
+  // event reaches JS, the Rust worker has already started the import
+  // and the result will arrive via `deep-link-import-done`.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    void subscribeToImporterDragDrop((event) => {
+      setIsDragging(event.type === 'enter' || event.type === 'over');
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle('is-dragging', isDragging);
+    return () => {
+      document.body.classList.remove('is-dragging');
+    };
+  }, [isDragging]);
 
   if (view.kind === 'loading') {
     return (
