@@ -28,6 +28,7 @@ const BUNDLE_ID: &str = "com.rzru.catalog-importer";
 const CONFIG_FILE: &str = "config.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ImporterConfig {
     /// Parent directory of the user's `songs.db`, `cache/`, and `vendor/`.
     /// On a default Nightingale install this resolves to
@@ -38,7 +39,7 @@ pub struct ImporterConfig {
     pub library_folder: PathBuf,
     /// Allowlist of hosts the importer will fetch catalog cover art from.
     /// Supports exact host matches and single-segment wildcards (`pub-*.r2.dev`).
-    #[serde(default)]
+    #[serde(default = "default_allowed_cover_hosts")]
     pub allowed_cover_hosts: Vec<String>,
 }
 
@@ -134,11 +135,32 @@ mod tests {
     #[test]
     fn missing_allowed_cover_hosts_defaults() {
         let json = r#"{
-            "system_folder": "C:/Users/u/.nightingale",
-            "library_folder": "C:/Users/u/Music"
+            "systemFolder": "C:/Users/u/.nightingale",
+            "libraryFolder": "C:/Users/u/Music"
         }"#;
         let cfg: ImporterConfig = serde_json::from_str(json).expect("parse");
-        assert!(!cfg.allowed_cover_hosts.is_empty());
+        // `#[serde(default = "fn")]` should populate from `default_allowed_cover_hosts()`,
+        // not from `Vec::default()`. The function returns non-empty placeholders.
+        assert_eq!(cfg.allowed_cover_hosts, default_allowed_cover_hosts());
+    }
+
+    #[test]
+    fn accepts_camel_case_payload_from_frontend() {
+        // The catalog importer frontend bridge serializes the config with
+        // camelCase keys; the IPC layer must accept them. Regression guard
+        // for the `missing field system_folder` bug on Nightingale 1.2.
+        let json = r#"{
+            "systemFolder": "C:/Users/u/.nightingale",
+            "libraryFolder": "C:/Users/u/Music",
+            "allowedCoverHosts": ["cdn.example.com", "pub-*.r2.dev"]
+        }"#;
+        let cfg: ImporterConfig = serde_json::from_str(json).expect("parse");
+        assert_eq!(cfg.system_folder.to_str(), Some("C:/Users/u/.nightingale"));
+        assert_eq!(cfg.library_folder.to_str(), Some("C:/Users/u/Music"));
+        assert_eq!(
+            cfg.allowed_cover_hosts,
+            vec!["cdn.example.com".to_string(), "pub-*.r2.dev".to_string()]
+        );
     }
 
     #[test]
