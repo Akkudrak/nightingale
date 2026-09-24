@@ -99,6 +99,27 @@ impl CatalogImportDone {
             error: Some(message),
         }
     }
+
+    /// Success constructor. Mirrors [`CatalogImportDone::err`] so the
+    /// catalog exporter (and any future success-emitting producer)
+    /// doesn't have to remember the exact field order. `imported_path`
+    /// is the on-disk destination of the produced artifact — the
+    /// file the user actually chose to save to.
+    pub fn ok(
+        file_hash: String,
+        title: String,
+        artist: String,
+        imported_path: String,
+    ) -> Self {
+        Self {
+            ok: true,
+            file_hash: Some(file_hash),
+            title: Some(title),
+            artist: Some(artist),
+            imported_path: Some(imported_path),
+            error: None,
+        }
+    }
 }
 
 #[derive(Debug, Error)]

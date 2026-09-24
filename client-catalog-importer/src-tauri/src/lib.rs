@@ -40,6 +40,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::read_importer_config,
             commands::write_importer_config,
+            commands::list_analyzed_songs,
+            commands::export_song_zips,
         ])
         .setup(|app| {
             deep_link::register(app.handle());
