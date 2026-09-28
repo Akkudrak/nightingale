@@ -101,7 +101,7 @@ fn search_words_from_query(q: &str) -> Option<Vec<String>> {
     }
     let words: Vec<String> = t
         .split_whitespace()
-        .map(escape_like_pattern)
+        .map(|word| escape_like_pattern(&word.to_lowercase()))
         .filter(|w| !w.is_empty())
         .collect();
     if words.is_empty() { None } else { Some(words) }
@@ -112,10 +112,10 @@ fn songs_where_like_words(words: &[String]) -> (String, Vec<String>) {
     let mut parts = Vec::new();
     for w in words {
         parts.push(
-            "(s.title LIKE ('%' || ? || '%') ESCAPE '\\' OR \
-             s.artist LIKE ('%' || ? || '%') ESCAPE '\\' OR \
-             s.album LIKE ('%' || ? || '%') ESCAPE '\\' OR \
-             s.path LIKE ('%' || ? || '%') ESCAPE '\\')",
+            "(unicode_lower(s.title) LIKE ('%' || ? || '%') ESCAPE '\\' OR \
+             unicode_lower(s.artist) LIKE ('%' || ? || '%') ESCAPE '\\' OR \
+             unicode_lower(s.album) LIKE ('%' || ? || '%') ESCAPE '\\' OR \
+             unicode_lower(s.path) LIKE ('%' || ? || '%') ESCAPE '\\')",
         );
         for _ in 0..4 {
             flat.push(w.clone());

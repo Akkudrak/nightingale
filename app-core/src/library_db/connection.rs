@@ -8,7 +8,7 @@
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 
-use rusqlite::Connection;
+use rusqlite::{Connection, functions::FunctionFlags};
 
 use super::migrations::{configure, run_migrations};
 
@@ -52,6 +52,12 @@ pub(super) fn open_connection(path: &Path) -> rusqlite::Result<Connection> {
         let _ = std::fs::create_dir_all(parent);
     }
     let conn = Connection::open(path)?;
+    conn.create_scalar_function(
+        "unicode_lower",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        |ctx| Ok(ctx.get::<String>(0)?.to_lowercase()),
+    )?;
     configure(&conn)?;
     run_migrations(&conn)?;
     Ok(conn)
