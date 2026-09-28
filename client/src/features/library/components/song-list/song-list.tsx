@@ -188,10 +188,9 @@ export const SongList = () => {
     }
     previousFilterKeyRef.current = filterKey;
 
-    setSelectedSong(null);
     resetScroll();
     setFocus((previous) => ({ ...previous, songIndex: 0 }));
-  }, [filterKey, resetScroll, setFocus, setSelectedSong]);
+  }, [filterKey, resetScroll, setFocus]);
 
   useEffect(() => {
     actionsRef.current.songCount = songs.length;
