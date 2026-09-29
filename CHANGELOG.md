@@ -25,6 +25,11 @@ below.
 
 - Migrated library persistence from handwritten runtime SQL to Diesel's typed SQLite query builder without changing existing databases or library behavior.
 - Playback queue songs can now be reordered by dragging or with Alt+Arrow keys.
+- The playback screen now shows the song's cover art, title, and artist on a loading screen while audio is still downloading/decoding, instead of a blank/shader background with no lyrics HUD. The HUD, pitch graph, and lyrics still wait for audio to be ready before appearing.
+
+### Removed
+
+- Removed the custom Chromecast receiver (`/api/customcast`, the `receiver_app_id` config option, and the separate `/receiver.html` web app) after the Cast Developer Console app registration for it never got past `LAUNCH_ERROR`/`NOT_FOUND`. Casting to the stock `DefaultMediaReceiver` via `/api/cast` (raw audio, or a pre-rendered karaoke video when `chromecast.karaoke_video` is set) is unaffected.
 
 ### Fixes
 
