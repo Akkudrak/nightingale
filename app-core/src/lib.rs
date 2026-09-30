@@ -49,7 +49,7 @@ pub use playback::{
     shift_tempo_done_payload,
 };
 pub use playback_queue::{PlaybackQueue, PlaybackQueueEntry};
-pub use playback_session::{PlaybackSession, PlaybackSessionStore};
+pub use playback_session::{PlaybackPlayer, PlaybackSession, PlaybackSessionStore};
 pub use profile::ProfileStore;
 pub use scanner::{CacheReconcileSummary, reconcile_cache, start_scan};
 pub use song::{Song, SongOrigin};

@@ -6,6 +6,7 @@
  * presentational tree that consumes the playback contexts via hooks.
  */
 
+import type { PlaybackPlayer } from '@/bridge/playback-session';
 import { isTauri } from '@/bridge/runtime';
 import { Background } from '@/features/playback/components/background';
 import { ResultDialog } from '@/features/playback/components/dialogs/result';
@@ -29,6 +30,7 @@ export type PlaybackInnerProps = {
   config: AppConfig | null;
   queuePlayback: boolean;
   sessionPlayback: boolean;
+  players?: readonly PlaybackPlayer[];
 };
 
 type PlaybackLayoutProps = PlaybackInnerProps;
@@ -43,11 +45,17 @@ function displaySettings(config: AppConfig | null) {
   };
 }
 
-function PlaybackLayout({ song, config, queuePlayback, sessionPlayback }: PlaybackLayoutProps) {
+function PlaybackLayout({
+  song,
+  config,
+  queuePlayback,
+  sessionPlayback,
+  players,
+}: PlaybackLayoutProps) {
   const { isReady, paused } = usePlaybackTransportState();
   const { handleContinue, handleExit } = usePlaybackTransportActions();
   const { segments } = usePlaybackTranscriptState();
-  const { series } = usePlaybackMicState();
+  const mic = usePlaybackMicState();
   const {
     lyricsVerticalPosition,
     lyricsHorizontalPosition,
@@ -58,8 +66,8 @@ function PlaybackLayout({ song, config, queuePlayback, sessionPlayback }: Playba
   const hudPosition = lyricsVerticalPosition === 'top' ? 'bottom' : 'top';
   const sessionWindowControls = sessionPlayback && isTauri;
 
-  usePlaybackInput(config);
-  const result = usePlaybackResult(song, queuePlayback);
+  const result = usePlaybackResult(song, queuePlayback, players ?? []);
+  usePlaybackInput(config, !result.open);
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-black" style={{ contain: 'strict' }}>
@@ -74,7 +82,7 @@ function PlaybackLayout({ song, config, queuePlayback, sessionPlayback }: Playba
             position={hudPosition}
             windowControls={sessionWindowControls}
           />
-          <PitchGraph series={series} position={hudPosition} scale={pitchGraphScale} />
+          <PitchGraph series={mic.series} position={hudPosition} scale={pitchGraphScale} />
           <LyricsDisplay
             segments={segments}
             verticalPosition={lyricsVerticalPosition}
@@ -94,10 +102,9 @@ function PlaybackLayout({ song, config, queuePlayback, sessionPlayback }: Playba
 
       <ResultDialog
         open={result.open}
-        score={result.score}
+        results={result.results}
         song={song}
         scores={result.scores}
-        activeProfile={result.activeProfile}
         nextPending={result.nextPending}
         exitLabel={sessionPlayback ? 'Exit Playback' : 'Back to Menu'}
         onBack={result.onBack}
@@ -112,14 +119,16 @@ export function PlaybackInner({
   config,
   queuePlayback,
   sessionPlayback,
+  players,
 }: PlaybackInnerProps) {
   return (
-    <PlaybackProviders song={song} config={config}>
+    <PlaybackProviders song={song} config={config} players={players}>
       <PlaybackLayout
         song={song}
         config={config}
         queuePlayback={queuePlayback}
         sessionPlayback={sessionPlayback}
+        players={players}
       />
     </PlaybackProviders>
   );

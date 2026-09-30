@@ -21,7 +21,11 @@ const enqueue = <T>(op: () => Promise<T>): Promise<T> => {
 
 const listDevices = (): Promise<MicrophoneInfo[]> => invoke<MicrophoneInfo[]>('list_microphones');
 
-const startCapture = (preferred: string | null, options: MicCaptureOptions): Promise<string> =>
+const startCapture = (
+  captureId: string,
+  preferred: string | null,
+  options: MicCaptureOptions,
+): Promise<string> =>
   enqueue(async () => {
     /**
      * Always allocate a fresh Channel: when Rust drops the previous one in
@@ -30,22 +34,23 @@ const startCapture = (preferred: string | null, options: MicCaptureOptions): Pro
      * spam "Couldn't find callback id ..." for every frame.
      */
     const channel = createChannel<MicSampleFrame>();
-    channel.onmessage = dispatchMicFrame;
+    channel.onmessage = (frame) => dispatchMicFrame(captureId, frame);
     return await invoke<string>('start_mic_capture', {
+      captureId,
       preferred,
       options,
       onSamples: channel,
     });
   });
 
-const stopCapture = (): Promise<void> =>
+const stopCapture = (captureId: string): Promise<void> =>
   enqueue(async () => {
-    await invoke('stop_mic_capture');
+    await invoke('stop_mic_capture', { captureId });
   });
 
 export const tauriMicrophoneAdapter: MicrophoneAdapter = {
   listDevices,
   startCapture,
   stopCapture,
-  subscribe: async (callback) => subscribeMicSamples(callback),
+  subscribe: async (captureId, callback) => subscribeMicSamples(captureId, callback),
 };

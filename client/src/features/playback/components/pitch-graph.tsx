@@ -39,6 +39,12 @@ const REF_LINE_COLOR: Rgb = { r: 0.5, g: 0.7, b: 1.0 };
 const REF_LINE_ALPHA = 0.55;
 
 const USER_BASE_COLOR: Rgb = { r: 0.85, g: 0.85, b: 1.0 };
+const PLAYER_COLORS: Rgb[] = [
+  { r: 0.98, g: 0.44, b: 0.52 },
+  { r: 0.91, g: 0.36, b: 0.78 },
+  { r: 0.98, g: 0.66, b: 0.15 },
+  { r: 0.2, g: 0.83, b: 0.6 },
+];
 const USER_ALPHA_WITHOUT_REF = 0.55;
 const USER_ALPHA_MIN_WITH_REF = 0.35;
 const USER_ALPHA_MAX_WITH_REF = 1.0;
@@ -222,24 +228,31 @@ function buildReferencePoint(
   };
 }
 
-function userPointStyle(similarity: number, hasRef: boolean): { color: Rgb; weight: number } {
+function userPointStyle(
+  similarity: number,
+  hasRef: boolean,
+  baseColor: Rgb,
+): { color: Rgb; weight: number } {
   if (!hasRef) {
-    return { color: USER_BASE_COLOR, weight: USER_ALPHA_WITHOUT_REF };
+    return { color: baseColor, weight: USER_ALPHA_WITHOUT_REF };
   }
 
   return {
-    color: lerpRgb(USER_BASE_COLOR, similarityToColor(similarity), similarity),
+    color: lerpRgb(baseColor, similarityToColor(similarity), similarity),
     weight:
       USER_ALPHA_MIN_WITH_REF + similarity * (USER_ALPHA_MAX_WITH_REF - USER_ALPHA_MIN_WITH_REF),
   };
 }
 
-function buildUserPoint(
-  userHz: number,
-  index: number,
-  series: PitchSeries,
-  layout: CanvasLayout,
-): PlotPoint {
+type UserPointInput = {
+  userHz: number;
+  index: number;
+  series: PitchSeries;
+  layout: CanvasLayout;
+  baseColor: Rgb;
+};
+
+function buildUserPoint({ userHz, index, series, layout, baseColor }: UserPointInput): PlotPoint {
   const seriesLength = series.userPitches.length;
   const refHz = series.refPitches[index];
 
@@ -247,7 +260,7 @@ function buildUserPoint(
   const displaySemi = refHz !== null ? snapToRefOctave(freqToSemitone(refHz), userSemi) : userSemi;
 
   const similarity = series.similarities[index] ?? 0;
-  const { color, weight } = userPointStyle(similarity, refHz !== null);
+  const { color, weight } = userPointStyle(similarity, refHz !== null, baseColor);
 
   return {
     x: indexToX(index, seriesLength, layout),
@@ -257,26 +270,38 @@ function buildUserPoint(
   };
 }
 
-function drawPitchSeries(
-  ctx: CanvasRenderingContext2D,
-  layout: CanvasLayout,
-  series: PitchSeries,
-): void {
+type DrawPitchSeriesInput = {
+  ctx: CanvasRenderingContext2D;
+  layout: CanvasLayout;
+  series: PitchSeries;
+  baseColor?: Rgb;
+  includeReference?: boolean;
+};
+
+function drawPitchSeries({
+  ctx,
+  layout,
+  series,
+  baseColor = USER_BASE_COLOR,
+  includeReference = true,
+}: DrawPitchSeriesInput): void {
   const length = series.refPitches.length;
   if (length < 2) {
     return;
   }
 
-  const refSegments = buildSegments(series.refPitches, (hz, i) =>
-    buildReferencePoint(hz, i, length, layout),
-  );
+  if (includeReference) {
+    const refSegments = buildSegments(series.refPitches, (hz, i) =>
+      buildReferencePoint(hz, i, length, layout),
+    );
 
-  for (const segment of refSegments) {
-    strokeUniformSegment(ctx, segment, layout.lineWidth);
+    for (const segment of refSegments) {
+      strokeUniformSegment(ctx, segment, layout.lineWidth);
+    }
   }
 
-  const userSegments = buildSegments(series.userPitches, (hz, i) =>
-    buildUserPoint(hz, i, series, layout),
+  const userSegments = buildSegments(series.userPitches, (userHz, index) =>
+    buildUserPoint({ userHz, index, series, layout, baseColor }),
   );
 
   for (const segment of userSegments) {
@@ -307,7 +332,8 @@ type PitchGraphProps = {
 };
 
 export function PitchGraph({ series, position = 'top', scale = 1 }: PitchGraphProps) {
-  const { micReady: visible } = usePlaybackMicState();
+  const { micReady, multiplayer, players } = usePlaybackMicState();
+  const visible = multiplayer ? players.some((player) => player.micReady) : micReady;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { height: windowHeight, width: windowWidth } = useWindowSize();
 
@@ -325,8 +351,25 @@ export function PitchGraph({ series, position = 'top', scale = 1 }: PitchGraphPr
     const layout = computeLayout(windowHeight, windowWidth, clampPlaybackScale(scale));
 
     setupCanvas(canvas, ctx, layout);
-    drawPitchSeries(ctx, layout, series);
-  }, [series, visible, windowHeight, windowWidth, scale]);
+    if (multiplayer) {
+      let referenceDrawn = false;
+      players.forEach((player, index) => {
+        if (!player.micReady) {
+          return;
+        }
+        drawPitchSeries({
+          ctx,
+          layout,
+          series: player.series,
+          baseColor: PLAYER_COLORS[index],
+          includeReference: !referenceDrawn,
+        });
+        referenceDrawn = true;
+      });
+    } else {
+      drawPitchSeries({ ctx, layout, series });
+    }
+  }, [multiplayer, players, series, visible, windowHeight, windowWidth, scale]);
 
   if (!visible) {
     return null;

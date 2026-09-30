@@ -4,6 +4,7 @@ import { useNavInput } from '@/features/menu/hooks/use-nav-input';
 import { usePlaybackConfigPersist } from '@/features/playback/hooks/use-playback-config-persist';
 import {
   usePlaybackMicActions,
+  usePlaybackMicState,
   usePlaybackThemeActions,
   usePlaybackTranscriptActions,
   usePlaybackTranscriptState,
@@ -26,6 +27,7 @@ type KeyboardActions = {
   handleToggleMic: () => void;
   handleCycleMic: () => void;
   handleToggleMicMonitor: () => void;
+  multiplayer: boolean;
 };
 
 function handleGuideKey(key: string, actions: KeyboardActions): boolean {
@@ -61,6 +63,10 @@ function handleKeyboardShortcut(event: KeyboardEvent, actions: KeyboardActions):
     return;
   }
 
+  if (actions.multiplayer && ['m', 'n'].includes(event.key.toLowerCase())) {
+    return;
+  }
+
   const shortcuts: Readonly<Record<string, () => void>> = {
     t: actions.cycleTheme,
     f: actions.cycleFlavor,
@@ -76,7 +82,7 @@ function handleKeyboardShortcut(event: KeyboardEvent, actions: KeyboardActions):
  * needs from the playback contexts; only the app config is passed in so we can
  * persist guide-volume changes without coupling this hook to the config query.
  */
-export function usePlaybackInput(config: AppConfig | null) {
+export function usePlaybackInput(config: AppConfig | null, enabled = true) {
   const { paused, isReady, guideVolume, guideAvailable } = usePlaybackTransportState();
   const { getCurrentTime, setGuideVolume, handlePause, handleContinue } =
     usePlaybackTransportActions();
@@ -84,6 +90,7 @@ export function usePlaybackInput(config: AppConfig | null) {
   const { firstSegmentStart, lastSegmentEnd, introSkipLeadSec } = usePlaybackTranscriptState();
   const { handleSkipIntro, handleSkipOutro } = usePlaybackTranscriptActions();
   const { handleToggleMic, handleCycleMic, handleToggleMicMonitor } = usePlaybackMicActions();
+  const { multiplayer } = usePlaybackMicState();
 
   const persistConfig = usePlaybackConfigPersist(config);
 
@@ -93,6 +100,9 @@ export function usePlaybackInput(config: AppConfig | null) {
   useNavInput(
     useCallback(
       (action) => {
+        if (!enabled) {
+          return;
+        }
         if (action.back) {
           if (pausedRef.current) {
             handleContinue();
@@ -119,6 +129,7 @@ export function usePlaybackInput(config: AppConfig | null) {
         }
       },
       [
+        enabled,
         handlePause,
         handleContinue,
         pausedRef,
@@ -135,6 +146,9 @@ export function usePlaybackInput(config: AppConfig | null) {
 
   // Keyboard-only shortcuts (G, T, F, M, N, R, +/-, Space)
   useEffect(() => {
+    if (!enabled) {
+      return undefined;
+    }
     const actions: KeyboardActions = {
       paused,
       guideVolume,
@@ -148,12 +162,14 @@ export function usePlaybackInput(config: AppConfig | null) {
       handleToggleMic,
       handleCycleMic,
       handleToggleMicMonitor,
+      multiplayer,
     };
     const onKeyDown = (event: KeyboardEvent) => handleKeyboardShortcut(event, actions);
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [
+    enabled,
     paused,
     guideVolume,
     guideAvailable,
@@ -166,5 +182,6 @@ export function usePlaybackInput(config: AppConfig | null) {
     handleToggleMic,
     handleCycleMic,
     handleToggleMicMonitor,
+    multiplayer,
   ]);
 }

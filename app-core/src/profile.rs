@@ -77,10 +77,12 @@ impl ProfileStore {
         self.save();
     }
 
-    pub fn add_score(&mut self, song_hash: &str, score: u32) {
-        let profile = match &self.active {
-            Some(p) => p.clone(),
-            None => return,
+    pub fn add_score(&mut self, song_hash: &str, score: u32, profile: Option<&str>) {
+        let profile = match profile.or(self.active.as_deref()) {
+            Some(profile) if self.profiles.iter().any(|candidate| candidate == profile) => {
+                profile.to_string()
+            }
+            _ => return,
         };
         let played_at = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

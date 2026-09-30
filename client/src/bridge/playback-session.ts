@@ -2,7 +2,7 @@ import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { z } from 'zod';
 
 import { invoke, isTauri, listen, type UnlistenFn } from './runtime';
-import { playbackLocationStateSchema } from './schemas';
+import { playbackLocationStateSchema, type playbackPlayerSchema } from './schemas';
 
 const SESSION_PLAYBACK_URL = '/playback?session=1';
 
@@ -10,6 +10,7 @@ const playbackSessionSchema = playbackLocationStateSchema.extend({
   queuePlayback: z.boolean(),
 });
 
+export type PlaybackPlayer = z.infer<typeof playbackPlayerSchema>;
 export type PlaybackSession = z.infer<typeof playbackSessionSchema>;
 export type PlaybackTarget = Window | null | undefined;
 

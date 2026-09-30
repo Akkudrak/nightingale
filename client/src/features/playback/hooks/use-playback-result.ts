@@ -1,14 +1,9 @@
-/**
- * Drives the end-of-song result dialog: watches transport.isFinished + the
- * skip-outro pending flag, persists the run's score to the active profile,
- * plays the success chime, and exposes the props the result dialog needs.
- */
-
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import successSoundUrl from '@/assets/sounds/success.mp3';
+import type { PlaybackPlayer } from '@/bridge/playback-session';
 import { addScore } from '@/bridge/profile';
 import {
   usePlaybackQueueQuery,
@@ -27,17 +22,53 @@ import { PROFILES } from '@/shared/query-keys';
 import type { ScoreRecord } from '@/types/ScoreRecord';
 import type { Song } from '@/types/Song';
 
-export type PlaybackResult = {
-  open: boolean;
+export type PlaybackPlayerResult = {
+  id: string;
+  profile: string | null;
   score: number;
-  scores: ScoreRecord[];
-  activeProfile: string | null;
-  nextPending: boolean;
-  onBack: () => void;
-  onNext?: () => void;
 };
 
-export function usePlaybackResult(song: Song, queuePlayback: boolean): PlaybackResult {
+type FinalResultsInput = {
+  multiplayer: boolean;
+  players: ReturnType<typeof usePlaybackMicState>['players'];
+  activeProfile: string | null;
+  soloScore: number;
+};
+
+function buildFinalResults(input: FinalResultsInput): PlaybackPlayerResult[] {
+  if (!input.multiplayer) {
+    return [{ id: 'solo', profile: input.activeProfile, score: input.soloScore }];
+  }
+  return input.players.map((player) => ({
+    id: player.id,
+    profile: player.profile,
+    score: player.rawScore,
+  }));
+}
+
+function finishReady(
+  isFinished: boolean,
+  skipOutroPending: boolean,
+  profilesLoading: boolean,
+  alreadyHandled: boolean,
+): boolean {
+  return (isFinished || skipOutroPending) && !profilesLoading && !alreadyHandled;
+}
+
+export type PlaybackResult = {
+  open: boolean;
+  results: PlaybackPlayerResult[];
+  scores: ScoreRecord[];
+  nextPending: boolean;
+  onBack: () => void;
+  onNext?: (players?: readonly PlaybackPlayer[]) => void;
+};
+
+export function usePlaybackResult(
+  song: Song,
+  queuePlayback: boolean,
+  players: readonly PlaybackPlayer[],
+): PlaybackResult {
   const fileHash = song.file_hash;
   const queryClient = useQueryClient();
   const { data: profileData, isLoading: profilesLoading } = useProfiles();
@@ -46,35 +77,32 @@ export function usePlaybackResult(song: Song, queuePlayback: boolean): PlaybackR
 
   const { isFinished } = usePlaybackTransportState();
   const { handleExit } = usePlaybackTransportActions();
-  const { rawScore } = usePlaybackMicState();
+  const { rawScore, players: micPlayers, multiplayer } = usePlaybackMicState();
   const { skipOutroPending } = usePlaybackTranscriptState();
   const { clearSkipOutroPending } = usePlaybackTranscriptActions();
 
   const [showResult, setShowResult] = useState(false);
-  const [resultScore, setResultScore] = useState(0);
-
+  const [results, setResults] = useState<PlaybackPlayerResult[]>([]);
+  const micPlayersRef = useLatestRef(micPlayers);
   const scoreRef = useLatestRef(rawScore);
   const finishHandledRef = useRef(false);
 
   useEffect(() => {
-    if (!isFinished && !skipOutroPending) {
-      return;
-    }
-
-    if (profilesLoading) {
-      return;
-    }
-
-    if (finishHandledRef.current) {
+    if (!finishReady(isFinished, skipOutroPending, profilesLoading, finishHandledRef.current)) {
       return;
     }
 
     finishHandledRef.current = true;
     clearSkipOutroPending();
 
-    const finalScore = scoreRef.current;
-    const active = profileData?.active ?? null;
-    const shouldShowResult = queuePlayback || finalScore > 0;
+    const finalResults = buildFinalResults({
+      multiplayer,
+      players: micPlayersRef.current,
+      activeProfile: profileData?.active ?? null,
+      soloScore: scoreRef.current,
+    });
+    const shouldShowResult =
+      multiplayer || queuePlayback || finalResults.some((result) => result.score > 0);
 
     if (!shouldShowResult) {
       handleExit();
@@ -83,27 +111,35 @@ export function usePlaybackResult(song: Song, queuePlayback: boolean): PlaybackR
 
     void (async () => {
       try {
-        if (active !== null) {
-          await addScore(fileHash, finalScore);
+        await Promise.all(
+          finalResults.flatMap((result) =>
+            result.profile === null ? [] : [addScore(fileHash, result.score, result.profile)],
+          ),
+        );
+        if (finalResults.some((result) => result.profile !== null)) {
           await queryClient.invalidateQueries({ queryKey: PROFILES });
         }
-      } catch (e) {
-        toast.error(`Could not save score: ${e instanceof Error ? e.message : String(e)}`);
+      } catch (error) {
+        toast.error(
+          `Could not save score: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
-      setResultScore(finalScore);
+      setResults(finalResults.toSorted((left, right) => right.score - left.score));
       setShowResult(true);
     })();
   }, [
-    isFinished,
-    skipOutroPending,
+    clearSkipOutroPending,
     fileHash,
     handleExit,
-    profileData,
+    isFinished,
+    micPlayersRef,
+    multiplayer,
+    profileData?.active,
     profilesLoading,
     queryClient,
-    clearSkipOutroPending,
-    scoreRef,
     queuePlayback,
+    scoreRef,
+    skipOutroPending,
   ]);
 
   useEffect(() => {
@@ -111,12 +147,12 @@ export function usePlaybackResult(song: Song, queuePlayback: boolean): PlaybackR
       return undefined;
     }
 
-    const audioEl = new Audio(successSoundUrl);
-    void audioEl.play().catch(() => {});
+    const audioElement = new Audio(successSoundUrl);
+    void audioElement.play().catch(() => {});
 
     return () => {
-      audioEl.pause();
-      audioEl.src = '';
+      audioElement.pause();
+      audioElement.src = '';
     };
   }, [showResult]);
 
@@ -124,14 +160,16 @@ export function usePlaybackResult(song: Song, queuePlayback: boolean): PlaybackR
     setShowResult(false);
     handleExit();
   }, [handleExit]);
-  const onNext = useCallback(() => playNext(), [playNext]);
+  const onNext = useCallback(
+    (nextPlayers: readonly PlaybackPlayer[] = players) => playNext([...nextPlayers]),
+    [playNext, players],
+  );
   const hasNext = queuePlayback && entries.length > 0;
 
   return {
     open: showResult,
-    score: resultScore,
+    results,
     scores: profileData?.scores ?? [],
-    activeProfile: profileData?.active ?? null,
     nextPending: isPreparing,
     onBack,
     onNext: hasNext ? onNext : undefined,

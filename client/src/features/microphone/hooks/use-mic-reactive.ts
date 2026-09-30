@@ -18,7 +18,7 @@ const RING_CAPACITY = REACTIVE_FFT_SIZE * 2;
 export type { MicReactiveEvent } from '@/features/microphone/lib/reactive-analyzer';
 export type MicReactiveRef = MutableRefObject<MicReactiveEvent | null>;
 
-export function useMicReactive(enabled: boolean): MicReactiveRef {
+export function useMicReactive(captureId: string, enabled: boolean): MicReactiveRef {
   const ref = useRef<MicReactiveEvent | null>(null);
   const ringRef = useRef<SampleRing | null>(null);
   const sampleRateRef = useRef(0);
@@ -27,10 +27,14 @@ export function useMicReactive(enabled: boolean): MicReactiveRef {
     ringRef.current = new SampleRing(RING_CAPACITY);
   }
 
-  useMicSamples((frame) => {
-    sampleRateRef.current = frame.sample_rate;
-    ringRef.current?.push(frame.samples);
-  }, enabled);
+  useMicSamples(
+    captureId,
+    (frame) => {
+      sampleRateRef.current = frame.sample_rate;
+      ringRef.current?.push(frame.samples);
+    },
+    enabled,
+  );
 
   useEffect(() => {
     if (!enabled) {

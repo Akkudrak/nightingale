@@ -5,6 +5,7 @@
 
 import type { ReactNode } from 'react';
 
+import type { PlaybackPlayer } from '@/bridge/playback-session';
 import type { AppConfig } from '@/types/AppConfig';
 import type { Song } from '@/types/Song';
 
@@ -16,17 +17,18 @@ import { PlaybackTransportProvider } from './playback-transport-context';
 type PlaybackProvidersProps = {
   song: Song;
   config: AppConfig | null;
+  players?: readonly PlaybackPlayer[];
   children: ReactNode;
 };
 
-export function PlaybackProviders({ song, config, children }: PlaybackProvidersProps) {
+export function PlaybackProviders({ song, config, players, children }: PlaybackProvidersProps) {
   return (
     <PlaybackTransportProvider
       fileHash={song.file_hash}
       initialGuideVolume={config?.guide_volume ?? 0.3}
     >
       <PlaybackThemeProvider song={song} config={config}>
-        <PlaybackMicProvider config={config}>
+        <PlaybackMicProvider config={config} players={players}>
           <PlaybackTranscriptProvider fileHash={song.file_hash}>
             {children}
           </PlaybackTranscriptProvider>
@@ -58,6 +60,7 @@ export {
   usePlaybackMicState,
   type PlaybackMicActions,
   type PlaybackMicState,
+  type PlaybackPlayerMicState,
 } from './playback-mic-context';
 
 export {

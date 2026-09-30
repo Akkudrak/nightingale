@@ -53,7 +53,7 @@ type ActiveCapture = {
   emitAudio: boolean;
 };
 
-let active: ActiveCapture | null = null;
+const activeCaptures = new Map<string, ActiveCapture>();
 let workletUrl: string | null = null;
 let liveMonitorGain = DEFAULT_MONITOR_GAIN;
 let captureOpChain: Promise<unknown> = Promise.resolve();
@@ -93,12 +93,15 @@ const initialMonitorGain = (): number => {
 export const setWebMicMonitorGain = (value: number): void => {
   const clamped = Math.min(Math.max(value, 0), MAX_MONITOR_GAIN);
   liveMonitorGain = clamped;
-  if (active?.monitorGain) {
-    active.monitorGain.gain.value = clamped;
+  for (const active of activeCaptures.values()) {
+    if (active.monitorGain) {
+      active.monitorGain.gain.value = clamped;
+    }
   }
 };
 
-const teardown = (): void => {
+const teardown = (captureId: string): void => {
+  const active = activeCaptures.get(captureId);
   if (!active) {
     return;
   }
@@ -129,7 +132,7 @@ const teardown = (): void => {
     }
   }
   void context.close().catch(() => {});
-  active = null;
+  activeCaptures.delete(captureId);
 };
 
 const browserMediaDevices = (): MediaDevices | undefined => {
@@ -179,10 +182,11 @@ const findDeviceId = async (preferred: string | null): Promise<string | undefine
 };
 
 const startCaptureInternal = async (
+  captureId: string,
   preferred: string | null,
   options: MicCaptureOptions,
 ): Promise<string> => {
-  teardown();
+  teardown(captureId);
 
   const deviceId = await findDeviceId(preferred);
   const stream = await navigator.mediaDevices.getUserMedia({
@@ -213,7 +217,7 @@ const startCaptureInternal = async (
       // depend on Float32Array's surface.
       samples: Array.from(samples),
     };
-    dispatchMicFrame(frame);
+    dispatchMicFrame(captureId, frame);
   };
   node.port.addEventListener('message', onMessage);
   node.port.start();
@@ -228,7 +232,7 @@ const startCaptureInternal = async (
     source.connect(monitorGain).connect(context.destination);
   }
 
-  active = {
+  activeCaptures.set(captureId, {
     context,
     source,
     node,
@@ -236,7 +240,7 @@ const startCaptureInternal = async (
     stream,
     monitorGain,
     emitAudio: options.emit_audio,
-  };
+  });
 
   const track = stream.getAudioTracks()[0];
   return (
@@ -244,18 +248,23 @@ const startCaptureInternal = async (
   );
 };
 
-const stopCaptureInternal = async (): Promise<void> => {
-  teardown();
+const stopCaptureInternal = async (captureId: string): Promise<void> => {
+  teardown(captureId);
 };
 
-const startCapture = (preferred: string | null, options: MicCaptureOptions): Promise<string> =>
-  enqueueCaptureOperation(() => startCaptureInternal(preferred, options));
+const startCapture = (
+  captureId: string,
+  preferred: string | null,
+  options: MicCaptureOptions,
+): Promise<string> =>
+  enqueueCaptureOperation(() => startCaptureInternal(captureId, preferred, options));
 
-const stopCapture = (): Promise<void> => enqueueCaptureOperation(stopCaptureInternal);
+const stopCapture = (captureId: string): Promise<void> =>
+  enqueueCaptureOperation(() => stopCaptureInternal(captureId));
 
 export const webMicrophoneAdapter: MicrophoneAdapter = {
   listDevices,
   startCapture,
   stopCapture,
-  subscribe: async (callback) => subscribeMicSamples(callback),
+  subscribe: async (captureId, callback) => subscribeMicSamples(captureId, callback),
 };

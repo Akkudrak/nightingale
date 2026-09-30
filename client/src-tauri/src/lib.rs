@@ -29,7 +29,7 @@ use playback::{
     load_transcript,
 };
 use playback_queue::{
-    add_playback_queue_entry, clear_playback_queue, load_playback_queue,
+    add_playback_queue_entry, clear_playback_queue, load_playback_queue, move_playback_queue_entry,
     remove_playback_queue_entry,
 };
 use playback_session::{load_playback_session, save_playback_session};
@@ -118,6 +118,7 @@ pub fn run() {
             // Playback queue
             load_playback_queue,
             add_playback_queue_entry,
+            move_playback_queue_entry,
             remove_playback_queue_entry,
             clear_playback_queue,
             // Playback session

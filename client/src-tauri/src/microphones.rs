@@ -1,6 +1,6 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
@@ -91,7 +91,7 @@ fn audio_hosts() -> Vec<(cpal::HostId, &'static str)> {
 /// and virtual inputs remain independently selectable.
 #[tauri::command]
 pub(crate) fn list_microphones() -> Result<Vec<MicrophoneInfo>, String> {
-    let mut seen: HashSet<String> = HashSet::new();
+    let mut seen: HashSet<(String, String)> = HashSet::new();
     let mut out = Vec::new();
     let mut errors = Vec::new();
 
@@ -117,12 +117,12 @@ pub(crate) fn list_microphones() -> Result<Vec<MicrophoneInfo>, String> {
                 .id()
                 .map(|id| id.to_string())
                 .unwrap_or_else(|_| name.clone());
-            let id = format!("{host_name}:{raw_id}");
-            if seen.insert(id.clone()) {
+            let host = host_name.to_string();
+            if seen.insert((host.clone(), name.clone())) {
                 out.push(MicrophoneInfo {
-                    id,
+                    id: format!("{host_name}:{raw_id}"),
                     name,
-                    host: host_name.to_string(),
+                    host,
                 });
             }
         }
@@ -207,38 +207,35 @@ fn write_output_frames<T, F>(
     }
 }
 
-static MIC_RUNNING: AtomicBool = AtomicBool::new(false);
-static MIC_SHUTDOWN: once_cell::sync::Lazy<Arc<AtomicBool>> =
-    once_cell::sync::Lazy::new(|| Arc::new(AtomicBool::new(false)));
-static MONITOR_ENABLED: AtomicBool = AtomicBool::new(false);
-static MIC_CHANNEL: once_cell::sync::Lazy<Arc<Mutex<Option<Channel<MicSampleFrame>>>>> =
-    once_cell::sync::Lazy::new(|| Arc::new(Mutex::new(None)));
-static MIC_THREAD: once_cell::sync::Lazy<Mutex<Option<JoinHandle<()>>>> =
-    once_cell::sync::Lazy::new(|| Mutex::new(None));
+struct MicCapture {
+    shutdown: Arc<AtomicBool>,
+    monitor_enabled: Arc<AtomicBool>,
+    channel: Arc<Mutex<Option<Channel<MicSampleFrame>>>>,
+    thread: JoinHandle<()>,
+}
+
+static MIC_CAPTURES: once_cell::sync::Lazy<Mutex<HashMap<String, MicCapture>>> =
+    once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
 /// Serializes start/stop so concurrent IPC dispatches can't interleave a
 /// teardown with a fresh spawn.
 static MIC_OP_LOCK: once_cell::sync::Lazy<Mutex<()>> =
     once_cell::sync::Lazy::new(|| Mutex::new(()));
 
-fn take_mic_thread() -> Option<JoinHandle<()>> {
-    MIC_THREAD.lock().unwrap_or_else(|p| p.into_inner()).take()
-}
+fn stop_internal(capture_id: &str) {
+    let capture = MIC_CAPTURES
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .remove(capture_id);
+    let Some(capture) = capture else {
+        return;
+    };
 
-fn stop_internal() {
-    MIC_SHUTDOWN.store(true, Ordering::SeqCst);
-    MONITOR_ENABLED.store(false, Ordering::SeqCst);
-    /*
-     * Drop the channel before joining: this triggers Tauri's `Channel` Drop,
-     * which sends `{end: true}` to JS so the callback id is unregistered
-     * cleanly. The mic loop also gets `None` next iteration and stops sending.
-     */
-    if let Ok(mut slot) = MIC_CHANNEL.lock() {
+    capture.shutdown.store(true, Ordering::SeqCst);
+    capture.monitor_enabled.store(false, Ordering::SeqCst);
+    if let Ok(mut slot) = capture.channel.lock() {
         *slot = None;
     }
-    if let Some(handle) = take_mic_thread() {
-        let _ = handle.join();
-    }
-    MIC_RUNNING.store(false, Ordering::SeqCst);
+    let _ = capture.thread.join();
 }
 
 fn find_device(preferred: Option<&str>) -> Result<(cpal::Device, String), String> {
@@ -290,50 +287,49 @@ fn find_device(preferred: Option<&str>) -> Result<(cpal::Device, String), String
 
 #[tauri::command]
 pub(crate) fn start_mic_capture(
+    capture_id: String,
     preferred: Option<String>,
     options: Option<MicCaptureOptions>,
     on_samples: Channel<MicSampleFrame>,
 ) -> Result<String, String> {
     let _guard = MIC_OP_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-
-    /*
-     * Always tear down any prior session first. We used to short-circuit with
-     * "already running" if MIC_RUNNING was true, but that hit a race where
-     * the previous worker had already broken out on shutdown but not yet
-     * cleared MIC_RUNNING — the new start would skip spawning, and capture
-     * would silently die for the rest of the session.
-     */
-    stop_internal();
+    if capture_id.is_empty() {
+        return Err("capture ID cannot be empty".to_string());
+    }
+    stop_internal(&capture_id);
 
     let next_options = options.unwrap_or_default();
-    MONITOR_ENABLED.store(next_options.emit_audio, Ordering::SeqCst);
-
-    let (device, name) = match find_device(preferred.as_deref()) {
-        Ok(pair) => pair,
-        Err(e) => {
-            MONITOR_ENABLED.store(false, Ordering::SeqCst);
-            return Err(e);
-        }
-    };
-
-    if let Ok(mut slot) = MIC_CHANNEL.lock() {
-        *slot = Some(on_samples);
-    }
-
-    MIC_SHUTDOWN.store(false, Ordering::SeqCst);
-    MIC_RUNNING.store(true, Ordering::SeqCst);
+    let (device, name) = find_device(preferred.as_deref())?;
+    let shutdown = Arc::new(AtomicBool::new(false));
+    let monitor_enabled = Arc::new(AtomicBool::new(next_options.emit_audio));
+    let channel = Arc::new(Mutex::new(Some(on_samples)));
 
     let device_name = name.clone();
-    let shutdown = Arc::clone(&MIC_SHUTDOWN);
-
+    let worker_shutdown = Arc::clone(&shutdown);
+    let worker_monitor_enabled = Arc::clone(&monitor_enabled);
+    let worker_channel = Arc::clone(&channel);
     let handle = std::thread::spawn(move || {
-        run_mic_loop(device, &name, shutdown);
-        MIC_RUNNING.store(false, Ordering::SeqCst);
+        run_mic_loop(
+            device,
+            &name,
+            worker_shutdown,
+            worker_monitor_enabled,
+            worker_channel,
+        );
     });
 
-    if let Ok(mut slot) = MIC_THREAD.lock() {
-        *slot = Some(handle);
-    }
+    MIC_CAPTURES
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(
+            capture_id,
+            MicCapture {
+                shutdown,
+                monitor_enabled,
+                channel,
+                thread: handle,
+            },
+        );
 
     Ok(device_name)
 }
@@ -344,6 +340,7 @@ fn try_build_stream(
     sample_format: cpal::SampleFormat,
     pcm_shared: Arc<Mutex<VecDeque<f32>>>,
     audio_shared: Arc<Mutex<VecDeque<f32>>>,
+    monitor_enabled: Arc<AtomicBool>,
 ) -> Option<cpal::Stream> {
     let ch = config.channels as usize;
     let push_samples: SampleSink = {
@@ -365,7 +362,7 @@ fn try_build_stream(
                 }
             }
 
-            if MONITOR_ENABLED.load(Ordering::Relaxed) {
+            if monitor_enabled.load(Ordering::Relaxed) {
                 if let Ok(mut q) = audio_cb.try_lock() {
                     for sample in &mono_samples {
                         q.push_back(*sample);
@@ -434,6 +431,7 @@ fn try_build_output_stream(
     device: &cpal::Device,
     input_sample_rate: cpal::SampleRate,
     audio_shared: Arc<Mutex<VecDeque<f32>>>,
+    monitor_enabled: Arc<AtomicBool>,
 ) -> Option<cpal::Stream> {
     let default_cfg = match device.default_output_config() {
         Ok(c) => c,
@@ -459,7 +457,7 @@ fn try_build_output_stream(
         let mut initialized = false;
         let mut buffered = VecDeque::new();
         Arc::new(Mutex::new(Box::new(move || -> f32 {
-            if !MONITOR_ENABLED.load(Ordering::Relaxed) {
+            if !monitor_enabled.load(Ordering::Relaxed) {
                 return 0.0;
             }
 
@@ -578,7 +576,13 @@ fn drain_chunk(queue: &Mutex<VecDeque<f32>>) -> Option<Vec<f32>> {
     Some(q.drain(..SAMPLE_CHUNK).collect())
 }
 
-fn run_mic_loop(device: cpal::Device, name: &str, shutdown: Arc<AtomicBool>) {
+fn run_mic_loop(
+    device: cpal::Device,
+    name: &str,
+    shutdown: Arc<AtomicBool>,
+    monitor_enabled: Arc<AtomicBool>,
+    channel: Arc<Mutex<Option<Channel<MicSampleFrame>>>>,
+) {
     let default_cfg = match device.default_input_config() {
         Ok(c) => c,
         Err(e) => {
@@ -608,16 +612,26 @@ fn run_mic_loop(device: cpal::Device, name: &str, shutdown: Arc<AtomicBool>) {
         sample_format,
         Arc::clone(&pcm_shared),
         Arc::clone(&audio_shared),
+        Arc::clone(&monitor_enabled),
     ) else {
         warn!("[mic] failed to open '{name}'");
         return;
     };
-    let monitor_stream = cpal::default_host()
-        .default_output_device()
-        .and_then(|output_device| {
-            try_build_output_stream(&output_device, sr, Arc::clone(&audio_shared))
-        });
-    if monitor_stream.is_none() {
+    let monitor_stream = if monitor_enabled.load(Ordering::Relaxed) {
+        cpal::default_host()
+            .default_output_device()
+            .and_then(|output_device| {
+                try_build_output_stream(
+                    &output_device,
+                    sr,
+                    Arc::clone(&audio_shared),
+                    Arc::clone(&monitor_enabled),
+                )
+            })
+    } else {
+        None
+    };
+    if monitor_enabled.load(Ordering::Relaxed) && monitor_stream.is_none() {
         warn!("[mic] no output monitoring stream available");
     }
 
@@ -633,7 +647,7 @@ fn run_mic_loop(device: cpal::Device, name: &str, shutdown: Arc<AtomicBool>) {
         }
 
         while let Some(samples) = drain_chunk(&pcm_shared) {
-            let channel = MIC_CHANNEL.lock().ok().and_then(|s| s.clone());
+            let channel = channel.lock().ok().and_then(|slot| slot.clone());
             if let Some(channel) = channel {
                 let frame = MicSampleFrame {
                     sample_rate: sr,
@@ -648,7 +662,7 @@ fn run_mic_loop(device: cpal::Device, name: &str, shutdown: Arc<AtomicBool>) {
 }
 
 #[tauri::command]
-pub(crate) fn stop_mic_capture() {
+pub(crate) fn stop_mic_capture(capture_id: String) {
     let _guard = MIC_OP_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-    stop_internal();
+    stop_internal(&capture_id);
 }

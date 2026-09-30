@@ -103,10 +103,11 @@ async fn dispatch(state: AppState, name: &str, payload: Value) -> CmdResult {
             struct Args {
                 song_hash: String,
                 score: u32,
+                profile: Option<String>,
             }
             let args: Args = deserialize(payload)?;
             let mut store = ProfileStore::load();
-            store.add_score(&args.song_hash, args.score);
+            store.add_score(&args.song_hash, args.score, args.profile.as_deref());
             Ok(Value::Null)
         }
 
@@ -127,6 +128,21 @@ async fn dispatch(state: AppState, name: &str, payload: Value) -> CmdResult {
             let entries = state
                 .playback_queue
                 .add(&args.file_hash, args.tempo, args.key_offset)
+                .map_err(ApiError::bad_request)?;
+            events.emit("playback-queue-changed", &entries);
+            Ok(serde_json::to_value(entries).map_err(serde_err)?)
+        }
+        "move_playback_queue_entry" => {
+            #[derive(Deserialize)]
+            #[serde(rename_all = "camelCase")]
+            struct Args {
+                id: String,
+                target_index: usize,
+            }
+            let args: Args = deserialize(payload)?;
+            let entries = state
+                .playback_queue
+                .move_entry(&args.id, args.target_index)
                 .map_err(ApiError::bad_request)?;
             events.emit("playback-queue-changed", &entries);
             Ok(serde_json::to_value(entries).map_err(serde_err)?)

@@ -1,8 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { ListPlusIcon, PlayIcon } from 'lucide-react';
+import { ListPlusIcon, PlayIcon, UsersIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import type { PlaybackPlayer } from '@/bridge/playback-session';
 import { useAddPlaybackQueueEntry } from '@/features/playback-queue/use-playback-queue';
+import { MultiplayerSetupDialog } from '@/features/playback/components/dialogs/multiplayer-setup';
 import { usePlaybackLauncher } from '@/features/playback/hooks/use-playback-launcher';
 import { usePreparePlaybackMutation } from '@/features/playback/mutations/use-prepare-playback-mutation';
 import { useBestScoresBySongForActiveProfile } from '@/features/profiles/hooks/use-best-scores-by-song';
@@ -58,6 +60,7 @@ export const SongDetailsSidebar = ({ song, queueStatus, onClose }: SongDetailsSi
   const { launch, reserveTarget } = usePlaybackLauncher();
   const [tempo, setTempo] = useState(song.tempo);
   const [keyOffset, setKeyOffset] = useState(song.key_offset);
+  const [multiplayerOpen, setMultiplayerOpen] = useState(false);
 
   const status = getSongStatusInfo(song.is_analyzed, queueStatus);
   const analysisBusy = queueStatus === 'Queued' || Boolean(status.isAnalyzing);
@@ -68,6 +71,7 @@ export const SongDetailsSidebar = ({ song, queueStatus, onClose }: SongDetailsSi
     song.is_analyzed && song.transcript_source === 'Lrc' && song.no_stems && song.key === null;
   const supportsShifts = song.is_analyzed && song.transcript_source !== 'Usdx' && !keyPending;
   const supportsAnalysisActions = status.isReady === true && song.transcript_source !== 'Usdx';
+  const playbackDisabled = status.isReady !== true || preparingPlayback;
 
   // Off-queue key detection doesn't invalidate any query, so poll the song list
   // while the key is pending to pick it up and unlock the shift controls.
@@ -81,13 +85,13 @@ export const SongDetailsSidebar = ({ song, queueStatus, onClose }: SongDetailsSi
     return () => clearInterval(interval);
   }, [keyPending, queryClient]);
 
-  const handlePlay = () => {
+  const handlePlay = (players?: PlaybackPlayer[]) => {
     const target = reserveTarget();
     if (target === undefined) {
       return;
     }
     const start = (preparedSong: Song) =>
-      launch({ song: preparedSong, queuePlayback: false }, target);
+      launch({ song: preparedSong, queuePlayback: false, players }, target);
     const hasAdjustments = keyOffset !== song.key_offset || tempo !== song.tempo;
 
     if (!hasAdjustments) {
@@ -145,9 +149,9 @@ export const SongDetailsSidebar = ({ song, queueStatus, onClose }: SongDetailsSi
         <Button
           size="lg"
           className="h-8 flex-1 disabled:bg-primary/50 disabled:text-primary-foreground/45 disabled:opacity-100"
-          disabled={status.isReady !== true || preparingPlayback}
+          disabled={playbackDisabled}
           aria-busy={preparingPlayback}
-          onClick={handlePlay}
+          onClick={() => handlePlay()}
         >
           {preparingPlayback ? (
             <>
@@ -159,6 +163,16 @@ export const SongDetailsSidebar = ({ song, queueStatus, onClose }: SongDetailsSi
             </>
           )}
         </Button>
+        <Button
+          variant="outline"
+          size="icon-lg"
+          disabled={playbackDisabled}
+          onClick={() => setMultiplayerOpen(true)}
+          aria-label={`Play ${song.title} in multiplayer`}
+          title="Play multiplayer"
+        >
+          <UsersIcon />
+        </Button>
         <AddToQueueButton
           song={song}
           tempo={tempo}
@@ -167,6 +181,12 @@ export const SongDetailsSidebar = ({ song, queueStatus, onClose }: SongDetailsSi
           preparing={preparingPlayback}
         />
       </footer>
+
+      <MultiplayerSetupDialog
+        open={multiplayerOpen}
+        onOpenChange={setMultiplayerOpen}
+        onStart={handlePlay}
+      />
     </aside>
   );
 };

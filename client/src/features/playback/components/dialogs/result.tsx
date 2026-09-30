@@ -1,4 +1,10 @@
+import { TrophyIcon } from 'lucide-react';
+import { useState } from 'react';
+
+import type { PlaybackPlayer } from '@/bridge/playback-session';
 import { useDialogNav } from '@/features/menu/hooks/use-dialog-nav';
+import { MultiplayerSetupDialog } from '@/features/playback/components/dialogs/multiplayer-setup';
+import type { PlaybackPlayerResult } from '@/features/playback/hooks/use-playback-result';
 import { topScoresForSong } from '@/features/playback/utils/result';
 import { Stars } from '@/shared/components/shared/stars';
 import { Button } from '@/shared/components/ui/button';
@@ -24,49 +30,315 @@ import type { ScoreRecord } from '@/types/ScoreRecord';
 import type { Song } from '@/types/Song';
 
 const TOP_LIMIT = 5;
-
 const RING = 'ring-2 ring-primary';
 const NO_FOCUS_RING = 'focus-visible:ring-0 focus-visible:border-transparent';
+const PLAYER_COLORS = ['bg-rose-400', 'bg-fuchsia-400', 'bg-amber-400', 'bg-emerald-400'];
+const EMPTY_RESULT: PlaybackPlayerResult = { id: 'solo', profile: null, score: 0 };
 
 type Props = {
   open: boolean;
-  score: number;
+  results: PlaybackPlayerResult[];
   song: Song;
   scores: ScoreRecord[];
-  activeProfile: string | null;
   nextPending: boolean;
   exitLabel: string;
   onBack: () => void;
-  onNext?: () => void;
+  onNext?: (players?: readonly PlaybackPlayer[]) => void;
 };
+
+const resultDialogWidth = (multiplayer: boolean): string =>
+  multiplayer ? 'sm:max-w-md' : 'sm:max-w-sm';
+
+const playerNumber = (id: string, fallback: number): number => {
+  const parsed = Number(id.slice('player-'.length));
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+function MultiplayerResults({ results }: { results: PlaybackPlayerResult[] }) {
+  return (
+    <Table aria-label="Multiplayer results">
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead className="w-12">#</TableHead>
+          <TableHead>Player</TableHead>
+          <TableHead className="text-right">Score</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {results.map((result, index) => {
+          const number = playerNumber(result.id, index + 1);
+          return (
+            <TableRow key={result.id} className={cn(index === 0 && 'bg-primary/10')}>
+              <TableCell className="tabular-nums">{index + 1}</TableCell>
+              <TableCell>
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className={`size-2.5 shrink-0 rounded-full ${PLAYER_COLORS[number - 1]}`}
+                    aria-hidden="true"
+                  />
+                  <span className="truncate font-medium">
+                    {result.profile ?? `Guest ${number}`}
+                  </span>
+                  {index === 0 ? (
+                    <span className="flex shrink-0 items-center gap-1 text-xs text-primary">
+                      <TrophyIcon className="size-3" /> Winner
+                    </span>
+                  ) : null}
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center justify-end gap-3">
+                  <Stars score={result.score} size="sm" />
+                  <span className="min-w-8 text-right font-semibold tabular-nums">
+                    {result.score}
+                  </span>
+                </div>
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
+  );
+}
+
+function SoloResults({ result, board }: { result: PlaybackPlayerResult; board: ScoreRecord[] }) {
+  return (
+    <>
+      <div className="flex flex-col items-center gap-1">
+        <p
+          className="text-4xl font-semibold text-primary tabular-nums"
+          aria-label={`Score ${result.score}`}
+        >
+          {result.score}
+        </p>
+        <Stars score={result.score} size="lg" className="mt-1" />
+      </div>
+
+      {board.length > 0 ? (
+        <>
+          <div className="h-px w-full bg-border" />
+          <p className="text-center text-[11px] font-medium tracking-wide text-muted-foreground">
+            BEST SCORES
+          </p>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="h-8 text-xs">#</TableHead>
+                <TableHead className="h-8 text-xs">Profile</TableHead>
+                <TableHead className="h-8 text-right text-xs">Score</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {board.map(({ profile, score }, index) => {
+                const isCurrent = profile === result.profile && score === result.score;
+                return (
+                  <TableRow key={profile} className={cn(isCurrent && 'bg-primary/10')}>
+                    <TableCell className="py-2 text-xs tabular-nums">{index + 1}</TableCell>
+                    <TableCell
+                      className={cn('py-2 text-xs', isCurrent && 'font-medium text-primary')}
+                    >
+                      {profile}
+                    </TableCell>
+                    <TableCell
+                      className={cn(
+                        'py-2 text-right text-xs tabular-nums',
+                        isCurrent && 'font-medium text-primary',
+                      )}
+                    >
+                      {score}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+type ResultActionsProps = Pick<
+  Props,
+  'open' | 'nextPending' | 'exitLabel' | 'onBack' | 'onNext'
+> & {
+  multiplayer: boolean;
+};
+
+type ActionButtonProps = {
+  open: boolean;
+  focusedIndex: number;
+  nextPending: boolean;
+};
+
+function ChangePlayersButton({
+  show,
+  onClick,
+  ...props
+}: ActionButtonProps & { show: boolean; onClick: () => void }) {
+  if (!show) {
+    return null;
+  }
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      className={cn(
+        'w-full sm:w-auto',
+        NO_FOCUS_RING,
+        props.open && props.focusedIndex === 1 && RING,
+      )}
+      disabled={props.nextPending}
+      onClick={onClick}
+    >
+      Change players
+    </Button>
+  );
+}
+
+function NextSongButton({
+  nextIndex,
+  onNext,
+  ...props
+}: ActionButtonProps & { nextIndex: number; onNext: Props['onNext'] }) {
+  if (!onNext) {
+    return null;
+  }
+  return (
+    <Button
+      type="button"
+      className={cn(
+        'w-full sm:w-auto',
+        NO_FOCUS_RING,
+        props.open && props.focusedIndex === nextIndex && RING,
+      )}
+      disabled={props.nextPending}
+      aria-busy={props.nextPending}
+      onClick={() => onNext()}
+    >
+      {props.nextPending ? (
+        <>
+          <Spinner className="size-4" /> Preparing…
+        </>
+      ) : (
+        'Next Song'
+      )}
+    </Button>
+  );
+}
+
+function NextSongSetup({
+  show,
+  open,
+  onOpenChange,
+  onStart,
+}: {
+  show: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onStart: NonNullable<Props['onNext']>;
+}) {
+  if (!show) {
+    return null;
+  }
+  return (
+    <MultiplayerSetupDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      onStart={onStart}
+      queuePlayback
+      submitLabel="Start next song"
+    />
+  );
+}
+
+function ResultActions({
+  open,
+  multiplayer,
+  nextPending,
+  exitLabel,
+  onBack,
+  onNext,
+}: ResultActionsProps) {
+  const [setupOpen, setSetupOpen] = useState(false);
+  const canChangePlayers = multiplayer && onNext !== undefined;
+  const nextIndex = canChangePlayers ? 2 : 1;
+  const startNext = onNext ?? (() => {});
+  const { focusedIndex } = useDialogNav({
+    open: open && !setupOpen && !nextPending,
+    itemCount: onNext ? nextIndex + 1 : 1,
+    onConfirm: (index) => {
+      if (index === 0) {
+        onBack();
+      } else if (canChangePlayers && index === 1) {
+        setSetupOpen(true);
+      } else {
+        startNext();
+      }
+    },
+    onBack,
+  });
+
+  return (
+    <>
+      <DialogFooter className="mt-2 flex-col sm:flex-row sm:justify-center">
+        <Button
+          type="button"
+          variant="outline"
+          className={cn('w-full sm:w-auto', NO_FOCUS_RING, open && focusedIndex === 0 && RING)}
+          disabled={nextPending}
+          onClick={onBack}
+        >
+          {exitLabel}
+        </Button>
+        <ChangePlayersButton
+          show={canChangePlayers}
+          open={open}
+          focusedIndex={focusedIndex}
+          nextPending={nextPending}
+          onClick={() => setSetupOpen(true)}
+        />
+        <NextSongButton
+          open={open}
+          focusedIndex={focusedIndex}
+          nextPending={nextPending}
+          nextIndex={nextIndex}
+          onNext={onNext}
+        />
+      </DialogFooter>
+
+      <NextSongSetup
+        show={canChangePlayers}
+        open={setupOpen}
+        onOpenChange={setSetupOpen}
+        onStart={startNext}
+      />
+    </>
+  );
+}
 
 export const ResultDialog = ({
   open,
-  score,
+  results,
   song,
   scores,
-  activeProfile,
   nextPending,
   exitLabel,
   onBack,
   onNext,
 }: Props) => {
+  const multiplayer = results.length > 1;
+  const soloResult = results.at(0) ?? EMPTY_RESULT;
   const board = topScoresForSong(scores, song.file_hash, TOP_LIMIT);
-
-  const { focusedIndex } = useDialogNav({
-    open,
-    itemCount: onNext ? 2 : 1,
-    onConfirm: (index) => (index === 0 ? onBack() : onNext?.()),
-    onBack,
-  });
 
   return (
     <Dialog open={open} modal>
       <DialogContent
         showCloseButton={false}
-        className="overflow-visible p-0 sm:max-w-sm"
-        onEscapeKeyDown={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
+        className={cn('overflow-visible p-0', resultDialogWidth(multiplayer))}
+        onEscapeKeyDown={(event) => event.preventDefault()}
+        onPointerDownOutside={(event) => event.preventDefault()}
       >
         <div className="flex flex-col gap-4 p-7">
           <DialogHeader className="gap-1 text-center sm:text-center">
@@ -74,90 +346,20 @@ export const ResultDialog = ({
             <DialogDescription className="text-sm">{song.artist}</DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col items-center gap-1">
-            <p
-              className="text-4xl font-semibold text-primary tabular-nums"
-              aria-label={`Score ${score}`}
-            >
-              {score}
-            </p>
-            <Stars score={score} size="lg" className="mt-1" />
-          </div>
+          {multiplayer ? (
+            <MultiplayerResults results={results} />
+          ) : (
+            <SoloResults result={soloResult} board={board} />
+          )}
 
-          {board.length > 0 ? (
-            <>
-              <div className="h-px w-full bg-border" />
-              <p className="text-center text-[11px] font-medium tracking-wide text-muted-foreground">
-                BEST SCORES
-              </p>
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="h-8 text-xs">#</TableHead>
-                    <TableHead className="h-8 text-xs">Profile</TableHead>
-                    <TableHead className="h-8 text-right text-xs">Score</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {board.map(({ profile, score: rowScore }, i) => {
-                    const isCurrent = profile === activeProfile && rowScore === score;
-
-                    return (
-                      <TableRow key={profile} className={cn(isCurrent && 'bg-primary/10')}>
-                        <TableCell className="py-2 text-xs tabular-nums">{i + 1}</TableCell>
-                        <TableCell
-                          className={cn('py-2 text-xs', isCurrent && 'font-medium text-primary')}
-                        >
-                          {profile}
-                        </TableCell>
-                        <TableCell
-                          className={cn(
-                            'py-2 text-right text-xs tabular-nums',
-                            isCurrent && 'font-medium text-primary',
-                          )}
-                        >
-                          {rowScore}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </>
-          ) : null}
-
-          <DialogFooter className="mt-2 sm:justify-center">
-            <Button
-              type="button"
-              variant="outline"
-              className={cn('w-full sm:w-auto', NO_FOCUS_RING, open && focusedIndex === 0 && RING)}
-              disabled={nextPending}
-              onClick={onBack}
-            >
-              {exitLabel}
-            </Button>
-            {onNext ? (
-              <Button
-                type="button"
-                className={cn(
-                  'w-full sm:w-auto',
-                  NO_FOCUS_RING,
-                  open && focusedIndex === 1 && RING,
-                )}
-                disabled={nextPending}
-                aria-busy={nextPending}
-                onClick={onNext}
-              >
-                {nextPending ? (
-                  <>
-                    <Spinner className="size-4" /> Preparing…
-                  </>
-                ) : (
-                  'Next Song'
-                )}
-              </Button>
-            ) : null}
-          </DialogFooter>
+          <ResultActions
+            open={open}
+            multiplayer={multiplayer}
+            nextPending={nextPending}
+            exitLabel={exitLabel}
+            onBack={onBack}
+            onNext={onNext}
+          />
         </div>
       </DialogContent>
     </Dialog>

@@ -23,11 +23,21 @@ const browserMediaDevices = (): MediaDevices | undefined => {
 
 async function listMicDevices(adapter: MicrophoneAdapter): Promise<MicDevice[]> {
   const mics = await adapter.listDevices();
-  return mics.map(({ id, name, host }: MicrophoneInfo) => ({
-    deviceId: id,
-    label: host === 'Browser' ? name : `${host}: ${name}`,
-    name,
-  }));
+  const seen = new Set<string>();
+  return mics
+    .filter(({ name, host }) => {
+      const key = `${host}\u0000${name}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    })
+    .map(({ id, name, host }: MicrophoneInfo) => ({
+      deviceId: id,
+      label: host === 'Browser' ? name : `${host}: ${name}`,
+      name,
+    }));
 }
 
 export function useMicDevicesQuery(adapter: MicrophoneAdapter = microphoneAdapter) {

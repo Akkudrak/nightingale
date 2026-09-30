@@ -18,6 +18,10 @@ export const deleteProfile = async (name: string): Promise<void> => {
   return await invoke<void>('delete_profile', { name });
 };
 
-export const addScore = async (songHash: string, score: number): Promise<void> => {
-  return await invoke<void>('add_score', { songHash, score });
+export const addScore = async (
+  songHash: string,
+  score: number,
+  profile?: string,
+): Promise<void> => {
+  return await invoke<void>('add_score', { songHash, score, profile });
 };

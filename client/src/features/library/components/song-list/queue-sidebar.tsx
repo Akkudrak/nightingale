@@ -1,15 +1,19 @@
-import { ListMusicIcon, PlayIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { ListMusicIcon, PlayIcon, Trash2Icon, UsersIcon, XIcon } from 'lucide-react';
+import { useState } from 'react';
 
 import type { PlaybackQueueEntry } from '@/bridge/playback-queue';
+import type { PlaybackPlayer } from '@/bridge/playback-session';
 import { useSongDetailsNav } from '@/features/library/components/song-list/details/use-song-details-nav';
-import { AlbumArt } from '@/features/library/components/song-list/shared/album-art';
+import { QueueList } from '@/features/library/components/song-list/queue-list';
 import { useDialog } from '@/features/menu/hooks/use-dialog';
 import { useDialogNav } from '@/features/menu/hooks/use-dialog-nav';
 import {
   useClearPlaybackQueue,
+  useMovePlaybackQueueEntry,
   useRemovePlaybackQueueEntry,
   useStartNextPlaybackQueueSong,
 } from '@/features/playback-queue/use-playback-queue';
+import { MultiplayerSetupDialog } from '@/features/playback/components/dialogs/multiplayer-setup';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +34,12 @@ type QueueSidebarProps = {
   onClose: () => void;
 };
 
+const queuePlaybackDisabled = (
+  entryCount: number,
+  preparing: boolean,
+  clearing: boolean,
+): boolean => entryCount === 0 || preparing || clearing;
+
 const dialogFocusClass = (open: boolean, focusedIndex: number, index: number): string =>
   cn(
     'focus-visible:border-transparent focus-visible:ring-0',
@@ -38,6 +48,7 @@ const dialogFocusClass = (open: boolean, focusedIndex: number, index: number): s
 
 export function QueueSidebar({ entries, onClose }: QueueSidebarProps) {
   const { isPreparing, playNext } = useStartNextPlaybackQueueSong(entries);
+  const { mutate: move, isLoading: reordering } = useMovePlaybackQueueEntry();
   const { mutate: remove, isLoading: removing } = useRemovePlaybackQueueEntry();
   const { mutate: clear, isLoading: clearing } = useClearPlaybackQueue();
   const { mode, setMode, close: closeDialog } = useDialog();
@@ -47,6 +58,9 @@ export function QueueSidebar({ entries, onClose }: QueueSidebarProps) {
     clear();
     closeDialog();
   };
+  const [multiplayerOpen, setMultiplayerOpen] = useState(false);
+  const playbackDisabled =
+    queuePlaybackDisabled(entries.length, isPreparing, clearing) || reordering;
   const { focusedIndex } = useDialogNav({
     open: confirmOpen,
     itemCount: 2,
@@ -69,37 +83,12 @@ export function QueueSidebar({ entries, onClose }: QueueSidebarProps) {
       </header>
 
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto p-3">
-        {entries.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Queue is empty</p>
-        ) : (
-          <ol className="divide-y">
-            {entries.map((entry, index) => (
-              <li key={entry.id} className="flex items-center gap-2 py-2 first:pt-0 last:pb-0">
-                <AlbumArt song={entry.song} className="size-10 rounded-sm" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-center text-sm font-medium">
-                    <p className="truncate">{entry.song.title}</p>
-                    {index === 0 ? (
-                      <span className="shrink-0 text-xs font-medium text-primary"> · Next up</span>
-                    ) : null}
-                  </div>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {entry.song.artist || '—'}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  disabled={removing || clearing}
-                  onClick={() => remove(entry.id)}
-                  aria-label={`Remove ${entry.song.title} from queue`}
-                >
-                  <Trash2Icon />
-                </Button>
-              </li>
-            ))}
-          </ol>
-        )}
+        <QueueList
+          entries={entries}
+          disabled={reordering || removing || clearing}
+          onMove={move}
+          onRemove={remove}
+        />
       </div>
 
       <footer
@@ -109,9 +98,9 @@ export function QueueSidebar({ entries, onClose }: QueueSidebarProps) {
         <Button
           size="lg"
           className="h-8 flex-1"
-          disabled={entries.length === 0 || isPreparing || clearing}
+          disabled={playbackDisabled}
           aria-busy={isPreparing}
-          onClick={playNext}
+          onClick={() => playNext()}
         >
           {isPreparing ? (
             <>
@@ -123,6 +112,16 @@ export function QueueSidebar({ entries, onClose }: QueueSidebarProps) {
             </>
           )}
         </Button>
+        <Button
+          variant="outline"
+          size="icon-lg"
+          disabled={playbackDisabled}
+          onClick={() => setMultiplayerOpen(true)}
+          aria-label="Play queue in multiplayer"
+          title="Play multiplayer"
+        >
+          <UsersIcon />
+        </Button>
         <AlertDialog
           open={confirmOpen}
           onOpenChange={(open) => setMode(open ? 'clear-playback-queue' : null)}
@@ -131,7 +130,7 @@ export function QueueSidebar({ entries, onClose }: QueueSidebarProps) {
             <Button
               variant="destructive"
               size="icon-lg"
-              disabled={entries.length === 0 || clearing || removing || isPreparing}
+              disabled={entries.length === 0 || clearing || removing || reordering || isPreparing}
               aria-label="Clear playback queue"
               title="Clear queue"
             >
@@ -164,6 +163,13 @@ export function QueueSidebar({ entries, onClose }: QueueSidebarProps) {
           </AlertDialogContent>
         </AlertDialog>
       </footer>
+
+      <MultiplayerSetupDialog
+        open={multiplayerOpen}
+        onOpenChange={setMultiplayerOpen}
+        onStart={(players: PlaybackPlayer[]) => playNext(players)}
+        queuePlayback
+      />
     </aside>
   );
 }

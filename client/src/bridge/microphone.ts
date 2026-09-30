@@ -12,9 +12,13 @@ export type { MicCaptureOptions, MicSampleFrame };
 
 export type MicrophoneAdapter = {
   listDevices(): Promise<MicrophoneInfo[]>;
-  startCapture(preferred: string | null, options: MicCaptureOptions): Promise<string>;
-  stopCapture(): Promise<void>;
-  subscribe(cb: MicSamplesCallback): Promise<StopListening>;
+  startCapture(
+    captureId: string,
+    preferred: string | null,
+    options: MicCaptureOptions,
+  ): Promise<string>;
+  stopCapture(captureId: string): Promise<void>;
+  subscribe(captureId: string, cb: MicSamplesCallback): Promise<StopListening>;
 };
 
 export { tauriMicrophoneAdapter, webMicrophoneAdapter };
@@ -25,12 +29,15 @@ export const microphoneAdapter: MicrophoneAdapter = isTauri
 
 export const listMicrophones = (): Promise<MicrophoneInfo[]> => microphoneAdapter.listDevices();
 
+const DEFAULT_CAPTURE_ID = 'default';
+
 export const startMicCapture = (
   preferred: string | null,
   options: MicCaptureOptions,
-): Promise<string> => microphoneAdapter.startCapture(preferred, options);
+): Promise<string> => microphoneAdapter.startCapture(DEFAULT_CAPTURE_ID, preferred, options);
 
-export const stopMicCapture = (): Promise<void> => microphoneAdapter.stopCapture();
+export const stopMicCapture = (): Promise<void> =>
+  microphoneAdapter.stopCapture(DEFAULT_CAPTURE_ID);
 
 /**
  * Pushes a new monitor gain to the active web capture. In Tauri the same value
