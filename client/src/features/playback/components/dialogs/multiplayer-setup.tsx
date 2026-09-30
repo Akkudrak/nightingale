@@ -175,7 +175,6 @@ function setupError(input: SetupErrorInput): string | null {
 }
 
 type PlayerSetupStatus = {
-  selectedProfiles: Set<string>;
   selectedMicrophones: Set<string>;
   duplicateProfile: boolean;
   duplicateMicrophone: boolean;
@@ -209,7 +208,6 @@ function playerSetupStatus(
     !duplicateMicrophone &&
     validMicrophones;
   return {
-    selectedProfiles,
     selectedMicrophones,
     duplicateProfile,
     duplicateMicrophone,
@@ -228,8 +226,6 @@ type PlayerRowsProps = {
   players: PlaybackPlayer[];
   profiles: readonly string[];
   microphones: readonly MicDevice[];
-  selectedProfiles: ReadonlySet<string>;
-  selectedMicrophones: ReadonlySet<string>;
   updatePlayer: (id: string, patch: Partial<PlaybackPlayer>) => void;
   removePlayer: (id: string) => void;
   navClass: (segment: number, slot?: number) => string;
@@ -239,12 +235,30 @@ type PlayerRowsProps = {
 const playerNavSlots = (index: number) =>
   index >= 2 ? { profile: 1, microphone: 2 } : { profile: 0, microphone: 1 };
 
+function updatedPlayers(
+  players: readonly PlaybackPlayer[],
+  id: string,
+  patch: Partial<PlaybackPlayer>,
+): PlaybackPlayer[] {
+  const key = patch.microphoneId !== undefined ? 'microphoneId' : 'profile';
+  const player = players.find((candidate) => candidate.id === id);
+  if (player === undefined || patch[key] === undefined || patch[key] === null) {
+    return players.map((candidate) =>
+      candidate.id === id ? { ...candidate, ...patch } : candidate,
+    );
+  }
+  return players.map((candidate) => {
+    if (candidate.id === id) {
+      return { ...candidate, ...patch };
+    }
+    return candidate[key] === patch[key] ? { ...candidate, [key]: player[key] } : candidate;
+  });
+}
+
 function PlayerRows({
   players,
   profiles,
   microphones,
-  selectedProfiles,
-  selectedMicrophones,
   updatePlayer,
   removePlayer,
   navClass,
@@ -303,11 +317,7 @@ function PlayerRows({
                 <SelectLabel>Profile</SelectLabel>
                 <SelectItem value={GUEST_VALUE}>Guest</SelectItem>
                 {profiles.map((profile) => (
-                  <SelectItem
-                    key={profile}
-                    value={`${PROFILE_PREFIX}${profile}`}
-                    disabled={player.profile !== profile && selectedProfiles.has(profile)}
-                  >
+                  <SelectItem key={profile} value={`${PROFILE_PREFIX}${profile}`}>
                     {profile}
                   </SelectItem>
                 ))}
@@ -339,14 +349,7 @@ function PlayerRows({
               <SelectGroup>
                 <SelectLabel>Microphone</SelectLabel>
                 {microphones.map((microphone) => (
-                  <SelectItem
-                    key={microphone.deviceId}
-                    value={microphone.deviceId}
-                    disabled={
-                      player.microphoneId !== microphone.deviceId &&
-                      selectedMicrophones.has(microphone.deviceId)
-                    }
-                  >
+                  <SelectItem key={microphone.deviceId} value={microphone.deviceId}>
                     {microphone.label}
                   </SelectItem>
                 ))}
@@ -403,29 +406,24 @@ export function MultiplayerSetupDialog({
   ]);
 
   const loading = setupDataLoading(profilesLoading, configLoading, microphones.isLoading);
-  const {
-    selectedProfiles,
-    selectedMicrophones,
-    duplicateProfile,
-    duplicateMicrophone,
-    validMicrophones,
-    canStart,
-  } = useMemo(
-    () => playerSetupStatus(players, microphones.data, loading),
-    [loading, microphones.data, players],
-  );
+  const { selectedMicrophones, duplicateProfile, duplicateMicrophone, validMicrophones, canStart } =
+    useMemo(
+      () => playerSetupStatus(players, microphones.data, loading),
+      [loading, microphones.data, players],
+    );
   const canAddPlayer = players.length < MAX_PLAYERS;
   const footerSegment = players.length + (canAddPlayer ? 1 : 0);
   const stops = useMemo(
     () => setupStops(players, canAddPlayer, canStart),
     [canAddPlayer, canStart, players],
   );
+  const closeDialog = () => onOpenChange(false);
   const { isFocused, focusSegment } = useDialogNav({
     open,
     itemCount: stops.reduce((total, count) => total + count, 0),
     stops,
     containerRef,
-    onBack: () => onOpenChange(false),
+    onBack: closeDialog,
   });
   const navClass = (segment: number, slot = 0): string =>
     cn(NO_FOCUS_RING, isFocused(segment, slot) && RING);
@@ -438,9 +436,7 @@ export function MultiplayerSetupDialog({
   }, [canStart, open, players]);
 
   const updatePlayer = (id: string, patch: Partial<PlaybackPlayer>) => {
-    setPlayers((current) =>
-      current.map((player) => (player.id === id ? { ...player, ...patch } : player)),
-    );
+    setPlayers((current) => updatedPlayers(current, id, patch));
   };
 
   const addPlayer = () => {
@@ -476,10 +472,7 @@ export function MultiplayerSetupDialog({
     validMicrophones,
   });
 
-  const startMultiplayer = () => {
-    onStart(players);
-    onOpenChange(false);
-  };
+  const startMultiplayer = () => onStart(players);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -506,8 +499,6 @@ export function MultiplayerSetupDialog({
               players={players}
               profiles={profileStore?.profiles ?? []}
               microphones={microphones.data}
-              selectedProfiles={selectedProfiles}
-              selectedMicrophones={selectedMicrophones}
               updatePlayer={updatePlayer}
               removePlayer={removePlayer}
               navClass={navClass}
@@ -542,7 +533,7 @@ export function MultiplayerSetupDialog({
             className={navClass(footerSegment, 0)}
             onFocus={() => focusSegment(footerSegment, 0)}
             onMouseEnter={() => focusSegment(footerSegment, 0)}
-            onClick={() => onOpenChange(false)}
+            onClick={closeDialog}
           >
             Cancel
           </Button>

@@ -131,13 +131,7 @@ function SongSidePanel({
   onCloseSong,
 }: SongSidePanelProps) {
   if (queueOpen) {
-    return (
-      <QueueSidebar
-        key={playbackQueue.map(({ id }) => id).join(':')}
-        entries={playbackQueue}
-        onClose={onCloseQueue}
-      />
-    );
+    return <QueueSidebar entries={playbackQueue} onClose={onCloseQueue} />;
   }
   if (song) {
     return (
