@@ -50,6 +50,7 @@ type UseSettingsNavigationOptions = {
   isParakeet: boolean;
   micMonitorGain: number;
   micLatencySec: number;
+  masterVolume: number;
   lyricsScale: number;
   pitchGraphScale: number;
   vocalThresholdPct: number;
@@ -57,6 +58,7 @@ type UseSettingsNavigationOptions = {
   onTabChange: (tab: SettingsTab) => void;
   onMicMonitorGainChange: (gain: number) => void;
   onMicLatencyChange: (latencySec: number) => void;
+  onMasterVolumeChange: (volume: number) => void;
   onLyricsScaleChange: (scale: number) => void;
   onPitchGraphScaleChange: (scale: number) => void;
   onVocalThresholdChange: (pct: number) => void;
@@ -68,6 +70,7 @@ export function useSettingsNavigation({
   isParakeet,
   micMonitorGain,
   micLatencySec,
+  masterVolume,
   lyricsScale,
   pitchGraphScale,
   vocalThresholdPct,
@@ -75,6 +78,7 @@ export function useSettingsNavigation({
   onTabChange,
   onMicMonitorGainChange,
   onMicLatencyChange,
+  onMasterVolumeChange,
   onLyricsScaleChange,
   onPitchGraphScaleChange,
   onVocalThresholdChange,
@@ -107,6 +111,12 @@ export function useSettingsNavigation({
       };
 
       const adjustPlayback = (): boolean => {
+        if (segment === NAV.playback.masterVolume) {
+          const delta = action.right ? 0.01 : -0.01;
+          onMasterVolumeChange(Math.min(1, Math.max(0, masterVolume + delta)));
+          return true;
+        }
+
         const delta = action.right ? PLAYBACK_SCALE_STEP : -PLAYBACK_SCALE_STEP;
         if (segment === NAV.playback.lyricsScale) {
           onLyricsScaleChange(

@@ -14,6 +14,7 @@ export type AppConfig = {
   library_source: LibrarySource | null;
   last_theme: number | null;
   guide_volume: number | null;
+  master_volume: number | null;
   fullscreen: boolean | null;
   playback_mode: string | null;
   dark_mode: boolean | null;

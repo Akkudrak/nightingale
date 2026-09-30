@@ -64,6 +64,7 @@ const playbackSettings = (config: AppConfig | undefined) => {
   if (!config) {
     return {
       mode: DEFAULTS.playback_mode,
+      masterVolume: DEFAULTS.master_volume,
       lyricsVertical: DEFAULTS.lyrics_vertical_position,
       lyricsHorizontal: DEFAULTS.lyrics_horizontal_position,
       lyricsScale: DEFAULT_PLAYBACK_SCALE,
@@ -74,6 +75,7 @@ const playbackSettings = (config: AppConfig | undefined) => {
 
   return {
     mode: config.playback_mode ?? DEFAULTS.playback_mode,
+    masterVolume: config.master_volume ?? DEFAULTS.master_volume,
     lyricsVertical: config.lyrics_vertical_position ?? DEFAULTS.lyrics_vertical_position,
     lyricsHorizontal: config.lyrics_horizontal_position ?? DEFAULTS.lyrics_horizontal_position,
     lyricsScale: clampPlaybackScale(config.lyrics_scale),
@@ -128,6 +130,8 @@ export const SettingsPage = () => {
   const micMonitorGain = micMonitorGainInput ?? general.micMonitorGain;
   const [micLatencySecInput, setMicLatencySec] = useState<number | null>(null);
   const micLatencySec = micLatencySecInput ?? general.micLatency;
+  const [masterVolumeInput, setMasterVolume] = useState<number | null>(null);
+  const masterVolume = masterVolumeInput ?? playback.masterVolume;
   const [lyricsVerticalInput, setLyricsVertical] = useState<string | null>(null);
   const lyricsVertical = pendingValue(lyricsVerticalInput, playback.lyricsVertical);
   const [lyricsHorizontalInput, setLyricsHorizontal] = useState<string | null>(null);
@@ -152,6 +156,7 @@ export const SettingsPage = () => {
   const analysisNav = getAnalysisNav(isParakeet);
 
   const modelOptions = useMemo(() => MODELS.map((model) => ({ value: model, label: model })), []);
+  const masterVolumePct = Math.round(masterVolume * 100);
   const lyricsScalePct = Math.round(lyricsScale * 100);
   const pitchGraphScalePct = Math.round(pitchGraphScale * 100);
   const vocalThresholdDisplayPct = Math.round(vocalThresholdPct * 100);
@@ -174,6 +179,11 @@ export const SettingsPage = () => {
   const updateMicLatency = (latencySec: number) => {
     setMicLatencySec(latencySec);
     mutate({ mic_latency_compensation_sec: latencySec });
+  };
+
+  const updateMasterVolume = (volume: number) => {
+    setMasterVolume(volume);
+    mutate({ master_volume: volume });
   };
 
   const updateLyricsScale = (scale: number) => {
@@ -201,6 +211,7 @@ export const SettingsPage = () => {
     mutate(DEFAULTS);
     setMicMonitorGain(DEFAULTS.mic_monitor_gain);
     setMicLatencySec(DEFAULTS.mic_latency_compensation_sec);
+    setMasterVolume(DEFAULTS.master_volume);
     setLyricsVertical(DEFAULTS.lyrics_vertical_position);
     setLyricsHorizontal(DEFAULTS.lyrics_horizontal_position);
     setLyricsScale(DEFAULTS.lyrics_scale);
@@ -215,6 +226,7 @@ export const SettingsPage = () => {
     isParakeet,
     micMonitorGain,
     micLatencySec,
+    masterVolume,
     lyricsScale,
     pitchGraphScale,
     vocalThresholdPct,
@@ -222,6 +234,7 @@ export const SettingsPage = () => {
     onTabChange: setTab,
     onMicMonitorGainChange: updateMicMonitorGain,
     onMicLatencyChange: updateMicLatency,
+    onMasterVolumeChange: updateMasterVolume,
     onLyricsScaleChange: updateLyricsScale,
     onPitchGraphScaleChange: updatePitchGraphScale,
     onVocalThresholdChange: updateVocalThreshold,
@@ -318,6 +331,19 @@ export const SettingsPage = () => {
                     options={PLAYBACK_MODES}
                     triggerClassName={getFocusClassName(NAV.playback.mode)}
                     onValueChange={(playback_mode) => mutate({ playback_mode })}
+                  />
+                </Field>
+
+                <Field>
+                  <Label>Master volume</Label>
+                  <Hint>Overall playback volume ({masterVolumePct}%)</Hint>
+                  <Slider
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={[masterVolumePct]}
+                    onValueChange={([pct]) => updateMasterVolume(pct / 100)}
+                    className={getFocusClassName(NAV.playback.masterVolume)}
                   />
                 </Field>
 

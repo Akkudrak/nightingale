@@ -61,18 +61,21 @@ const TransportActionsContext = createContext<PlaybackTransportActions | null>(n
 type PlaybackTransportProviderProps = {
   fileHash: string;
   initialGuideVolume: number;
+  initialMasterVolume: number;
   children: ReactNode;
 };
 
 export function PlaybackTransportProvider({
   fileHash,
   initialGuideVolume,
+  initialMasterVolume,
   children,
 }: PlaybackTransportProviderProps) {
   const navigate = useNavigate();
   // Snapshot the initial guide volume so changing config later doesn't
   // re-instantiate the audio engine via useAudioPlayer's effect deps.
   const [initialGuideVolumeSnapshot] = useState(initialGuideVolume);
+  const [initialMasterVolumeSnapshot] = useState(initialMasterVolume);
 
   const [stemsReady, setStemsReady] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -114,7 +117,11 @@ export function PlaybackTransportProvider({
     };
   }, [fileHash, navigate]);
 
-  const audio = useAudioPlayer(fileHash, initialGuideVolumeSnapshot, stemsReady);
+  const audio = useAudioPlayer(
+    fileHash,
+    { guide: initialGuideVolumeSnapshot, master: initialMasterVolumeSnapshot },
+    stemsReady,
+  );
 
   useEffect(() => {
     if (typeof audio.error === 'string' && audio.error !== '') {

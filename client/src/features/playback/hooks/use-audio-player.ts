@@ -3,7 +3,7 @@
  * rAF tick that notifies subscribers for visuals (background sync, lyrics, HUD).
  * The returned API object is referentially stable across renders when its fields are unchanged.
  *
- * Graph: instrumental buffer → destination; vocals buffer → gain (guide level) → destination.
+ * Graph: instrumental buffer → master gain → destination; vocals buffer → guide gain → master gain.
  * Playback position is derived from AudioContext.currentTime and a (offset, contextTimeAtStart)
  * pair because BufferSourceNode is one-shot: pause/seek recreate sources rather than mutating time.
  */
@@ -14,6 +14,11 @@ import type { PlaybackAdapter } from '@/bridge/playback';
 import { playbackAdapter } from '@/bridge/playback';
 
 export type TimeSubscriber = (time: number) => void;
+
+type InitialVolumes = {
+  guide: number;
+  master: number;
+};
 
 export type AudioPlayer = {
   getCurrentTime: () => number;
@@ -40,16 +45,18 @@ export type AudioPlayer = {
 
 export function useAudioPlayer(
   fileHash: string,
-  initialGuideVolume: number,
+  initialVolumes: InitialVolumes,
   enabled: boolean,
   adapter: PlaybackAdapter = playbackAdapter,
 ): AudioPlayer {
+  const { guide: initialGuideVolume, master: initialMasterVolume } = initialVolumes;
   const ctxRef = useRef<AudioContext | null>(null);
   const instrumentalBufRef = useRef<AudioBuffer | null>(null);
   const vocalsBufRef = useRef<AudioBuffer | null>(null);
   const instrumentalSrcRef = useRef<AudioBufferSourceNode | null>(null);
   const vocalsSrcRef = useRef<AudioBufferSourceNode | null>(null);
   const vocalsGainRef = useRef<GainNode | null>(null);
+  const masterGainRef = useRef<GainNode | null>(null);
   const rafRef = useRef<number>(0);
   const currentTimeRef = useRef(0);
   const subscribersRef = useRef<Set<TimeSubscriber>>(new Set());
@@ -125,8 +132,9 @@ export function useAudioPlayer(
       const instBuf = instrumentalBufRef.current;
       const vocBuf = vocalsBufRef.current;
       const gainNode = vocalsGainRef.current;
+      const masterGainNode = masterGainRef.current;
 
-      if (!ctx || !instBuf) {
+      if (!ctx || !instBuf || !masterGainNode) {
         return;
       }
 
@@ -136,7 +144,7 @@ export function useAudioPlayer(
 
       const instSrc = ctx.createBufferSource();
       instSrc.buffer = instBuf;
-      instSrc.connect(ctx.destination);
+      instSrc.connect(masterGainNode);
 
       instSrc.addEventListener(
         'ended',
@@ -193,9 +201,14 @@ export function useAudioPlayer(
     const ctx = new AudioContext();
     ctxRef.current = ctx;
 
+    const masterGainNode = ctx.createGain();
+    masterGainNode.gain.value = Math.max(0, Math.min(1, initialMasterVolume));
+    masterGainNode.connect(ctx.destination);
+    masterGainRef.current = masterGainNode;
+
     const gainNode = ctx.createGain();
     gainNode.gain.value = Math.max(0, Math.min(1, initialGuideVolume));
-    gainNode.connect(ctx.destination);
+    gainNode.connect(masterGainNode);
     vocalsGainRef.current = gainNode;
 
     const isCancelled = () => cancelled || cancelledRef.current;
@@ -297,10 +310,19 @@ export function useAudioPlayer(
       instrumentalBufRef.current = null;
       vocalsBufRef.current = null;
       vocalsGainRef.current = null;
+      masterGainRef.current = null;
       void ctx.close();
       ctxRef.current = null;
     };
-  }, [adapter, enabled, fileHash, initialGuideVolume, startSources, stopSources]);
+  }, [
+    adapter,
+    enabled,
+    fileHash,
+    initialGuideVolume,
+    initialMasterVolume,
+    startSources,
+    stopSources,
+  ]);
 
   const play = useCallback(() => {
     startSources(startOffsetRef.current);
