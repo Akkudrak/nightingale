@@ -23,7 +23,7 @@ import { BulkActionsMenu } from './bulk-actions-menu';
 const DEBOUNCE_MS = 500;
 export type SongListView = 'table' | 'grid';
 
-type FiltersProps = {
+type LibraryToolbarProps = {
   view: SongListView;
   queueCount: number;
   onOpenQueue: () => void;
@@ -31,13 +31,13 @@ type FiltersProps = {
   isSavingView?: boolean;
 };
 
-export const Filters = ({
+export const LibraryToolbar = ({
   view,
   queueCount,
   onOpenQueue,
   onViewChange,
   isSavingView,
-}: FiltersProps) => {
+}: LibraryToolbarProps) => {
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const { search, setSearch } = useSearch();
   const { status, transcript_source, setLibraryFilter } = useLibraryFilter();

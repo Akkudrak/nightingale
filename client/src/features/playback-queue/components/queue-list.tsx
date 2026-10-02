@@ -17,7 +17,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVerticalIcon, Trash2Icon } from 'lucide-react';
 
 import type { PlaybackQueueEntry } from '@/bridge/playback-queue';
-import { AlbumArt } from '@/features/library/components/song-list/shared/album-art';
+import { AlbumArt } from '@/features/library/components/song/album-art';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/shared/utils/cn';
 

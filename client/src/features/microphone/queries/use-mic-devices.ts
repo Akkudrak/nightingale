@@ -40,10 +40,14 @@ async function listMicDevices(adapter: MicrophoneAdapter): Promise<MicDevice[]> 
     }));
 }
 
-export function useMicDevicesQuery(adapter: MicrophoneAdapter = microphoneAdapter) {
+export function useMicDevicesQuery(adapter: MicrophoneAdapter = microphoneAdapter, enabled = true) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    if (!enabled) {
+      return undefined;
+    }
+
     const mediaDevices = browserMediaDevices();
     if (!mediaDevices) {
       return undefined;
@@ -56,7 +60,7 @@ export function useMicDevicesQuery(adapter: MicrophoneAdapter = microphoneAdapte
     return () => {
       mediaDevices.removeEventListener('devicechange', refresh);
     };
-  }, [queryClient]);
+  }, [enabled, queryClient]);
 
   const query = useQuery({
     queryKey: MIC_DEVICES,
@@ -64,6 +68,7 @@ export function useMicDevicesQuery(adapter: MicrophoneAdapter = microphoneAdapte
     staleTime: MIC_DEVICE_CACHE_MS,
     cacheTime: MIC_DEVICE_CACHE_MS,
     retry: false,
+    enabled,
     // Unlike initialData, placeholderData does not mark an empty list as a
     // successful, fresh response and therefore does not suppress enumeration.
     placeholderData: [],

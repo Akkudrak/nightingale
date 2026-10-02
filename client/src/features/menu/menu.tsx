@@ -2,9 +2,6 @@ import { useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router';
 
 import { EXIT_SUPPORTED } from '@/bridge/exit';
-import { EmptySongList } from '@/features/library/components/song-list/empty-song-list';
-import { SongList } from '@/features/library/components/song-list/song-list';
-import { useSongsMeta } from '@/features/library/queries/use-songs';
 import { EditLyricsDialog } from '@/features/lyrics/components';
 import { SelectLanguageDialog } from '@/features/lyrics/components/language';
 import { ClearCacheDialog } from '@/features/menu/components/clear-cache';
@@ -25,20 +22,6 @@ import { PlexConnectDialog } from '@/features/sources/components/plex-connect';
 import { FolderSourceConfirmDialog } from '@/features/sources/components/source-change-warning';
 import { UpdateDialog } from '@/features/updates/components';
 import { SidebarInset } from '@/shared/components/ui/sidebar';
-
-export const MenuIndex = () => {
-  const { data: meta, isLoading: isLoadingMeta } = useSongsMeta();
-
-  if (isLoadingMeta) {
-    return null;
-  }
-
-  if (typeof meta?.folder === 'string' && meta.folder !== '') {
-    return <SongList />;
-  }
-
-  return <EmptySongList />;
-};
 
 const SourceDialogs = ({ mode }: { mode: DialogMode }) => (
   <>

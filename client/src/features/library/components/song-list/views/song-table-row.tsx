@@ -16,7 +16,7 @@ export const SongTableRow = memo(
         return;
       }
       event.preventDefault();
-      onSelect();
+      onSelect(song);
     };
 
     return (
@@ -24,7 +24,7 @@ export const SongTableRow = memo(
         tabIndex={0}
         data-song-index={index}
         aria-selected={isSelected}
-        onClick={onSelect}
+        onClick={() => onSelect(song)}
         onKeyDown={onKeyDown}
         className={cn(
           'cursor-pointer border-b border-border/70 outline-none [&>td]:bg-background [&>td]:transition-colors hover:[&>td]:bg-accent focus-visible:[&>td]:bg-primary/15',

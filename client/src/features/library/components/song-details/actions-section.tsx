@@ -8,7 +8,7 @@ import { useProfiles } from '@/features/profiles/queries/use-profiles';
 import { Separator } from '@/shared/components/ui/separator';
 import type { Song } from '@/types/Song';
 
-import type { SongStatusInfo } from '../shared/song-status';
+import type { SongStatusInfo } from '../song/song-status';
 import { ActionItem } from './action-item';
 import { buildActionGroups } from './song-actions';
 

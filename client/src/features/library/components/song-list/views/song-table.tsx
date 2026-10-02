@@ -6,7 +6,7 @@ import type { Song } from '@/types/Song';
 import type { SongSort } from '@/types/SongSort';
 import type { SongSortColumn } from '@/types/SongSortColumn';
 
-import { songKey } from '../shared/song-key';
+import { songKey } from '../../song/song-key';
 import { SONG_COLUMNS, type SongColumn } from '../song-columns';
 import type { SongItemProps } from '../types';
 import { SongTableRow } from './song-table-row';

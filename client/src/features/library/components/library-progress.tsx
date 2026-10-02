@@ -23,7 +23,7 @@ function sourceLabel(source: LibrarySource | null | undefined): string {
   }
 }
 
-export const Progress = () => {
+export const LibraryProgress = () => {
   const { data: meta } = useSongsMeta();
   const { data: config } = useConfig();
 

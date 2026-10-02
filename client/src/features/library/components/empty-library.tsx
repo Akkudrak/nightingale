@@ -14,7 +14,7 @@ import {
   EmptyTitle,
 } from '@/shared/components/ui/empty';
 
-export const EmptySongList = () => {
+export const EmptyLibrary = () => {
   const { selectFolder, isPending, libraryPinned } = useLibrarySourceActions();
   const { setMode } = useDialog();
 

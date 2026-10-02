@@ -15,11 +15,11 @@ import { SONGS } from '@/shared/query-keys';
 import type { QueuedStatus } from '@/types/QueuedStatus';
 import type { Song } from '@/types/Song';
 
-import { ActionsSection } from './details/actions-section';
-import { KeyTempoSection } from './details/key-tempo-section';
-import { SongDetailsHeader } from './details/song-details-header';
-import { useSongDetailsNav } from './details/use-song-details-nav';
-import { getSongStatusInfo } from './shared/song-status';
+import { getSongStatusInfo } from '../song/song-status';
+import { ActionsSection } from './actions-section';
+import { KeyTempoSection } from './key-tempo-section';
+import { SongDetailsHeader } from './song-details-header';
+import { useSongDetailsNav } from './use-song-details-nav';
 
 type SongDetailsSidebarProps = {
   song: Song;

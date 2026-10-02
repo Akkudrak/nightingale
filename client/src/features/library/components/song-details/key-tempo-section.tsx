@@ -1,6 +1,6 @@
 import type { Song } from '@/types/Song';
 
-import { Shifts } from '../shifts';
+import { Shifts } from './shifts';
 
 type KeyTempoSectionProps = {
   song: Song;

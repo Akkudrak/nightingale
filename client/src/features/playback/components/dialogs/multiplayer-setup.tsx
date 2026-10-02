@@ -371,7 +371,7 @@ export function MultiplayerSetupDialog({
 }: MultiplayerSetupDialogProps) {
   const { data: profileStore, isLoading: profilesLoading } = useProfiles();
   const { data: config, isLoading: configLoading } = useConfig();
-  const microphones = useMicDevicesQuery();
+  const microphones = useMicDevicesQuery(undefined, open);
   const [players, setPlayers] = useState<PlaybackPlayer[]>([]);
   const initialized = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);

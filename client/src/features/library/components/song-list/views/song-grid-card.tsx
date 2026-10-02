@@ -4,9 +4,9 @@ import { Stars } from '@/shared/components/shared/stars';
 import { cn } from '@/shared/utils/cn';
 import { formatSeconds } from '@/shared/utils/format-duration';
 
-import { AlbumArt } from '../shared/album-art';
-import { LanguageBadge } from '../shared/language-badge';
-import { StatusBadge } from '../shared/status-badge';
+import { AlbumArt } from '../../song/album-art';
+import { LanguageBadge } from '../../song/language-badge';
+import { StatusBadge } from '../../song/status-badge';
 import type { SongItemProps } from '../types';
 
 type SongGridCardProps = {
@@ -19,7 +19,7 @@ export const SongGridCard = memo(
       type="button"
       data-song-index={index}
       aria-pressed={isSelected}
-      onClick={onSelect}
+      onClick={() => onSelect(song)}
       className={cn(
         'group flex h-full min-h-32 w-full min-w-0 cursor-pointer items-start gap-3 rounded-lg border bg-card p-3 text-left outline-none transition-colors hover:border-ring hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30',
         (isFocused || isSelected) && 'border-ring bg-muted ring-2 ring-ring/30',

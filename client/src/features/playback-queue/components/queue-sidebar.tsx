@@ -3,10 +3,10 @@ import { useState } from 'react';
 
 import type { PlaybackQueueEntry } from '@/bridge/playback-queue';
 import type { PlaybackPlayer } from '@/bridge/playback-session';
-import { useSongDetailsNav } from '@/features/library/components/song-list/details/use-song-details-nav';
-import { QueueList } from '@/features/library/components/song-list/queue-list';
+import { useSongDetailsNav } from '@/features/library/components/song-details/use-song-details-nav';
 import { useDialog } from '@/features/menu/hooks/use-dialog';
 import { useDialogNav } from '@/features/menu/hooks/use-dialog-nav';
+import { QueueList } from '@/features/playback-queue/components/queue-list';
 import {
   useClearPlaybackQueue,
   useMovePlaybackQueueEntry,

@@ -7,5 +7,5 @@ export type SongItemProps = {
   index: number;
   isFocused: boolean;
   isSelected: boolean;
-  onSelect: () => void;
+  onSelect: (song: Song) => void;
 };
