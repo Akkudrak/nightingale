@@ -1,29 +1,64 @@
 //! Song row CRUD.
-//!
-//! Everything that creates, updates, deletes, or fetches `songs` rows lives
-//! here. The hot helpers `song_to_payload`, `INSERT_SONG_SQL`,
-//! `insert_song_row_prepared`, and `load_song_from_payload_column` are
-//! `pub(crate)` so sibling submodules (queries, migrations) reuse them
-//! without copy-pasting the column lists.
 
-use rusqlite::params;
+use std::collections::HashSet;
 
+use diesel::QueryResult;
+use diesel::prelude::*;
+use diesel::sqlite::SqliteConnection;
+
+use crate::error::NightingaleError;
 use crate::song::{Song, TranscriptSource};
 
 use super::connection::{with_conn, with_conn_mut};
 use super::scan_generation_is_current;
+use super::schema::{analysis_queue, library_meta, songs};
+use super::sql_functions::NoCase;
 
-pub(crate) fn song_to_payload(song: &Song) -> rusqlite::Result<String> {
-    serde_json::to_string(song).map_err(|e| {
-        rusqlite::Error::ToSqlConversionFailure(Box::new(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            e.to_string(),
-        )))
-    })
+#[derive(Insertable)]
+#[diesel(table_name = songs)]
+struct NewSongRow {
+    path: String,
+    file_hash: String,
+    title: String,
+    artist: String,
+    album: String,
+    duration_secs: f64,
+    album_art_path: Option<String>,
+    is_analyzed: bool,
+    language: Option<String>,
+    transcript_source: Option<String>,
+    is_video: bool,
+    payload: String,
+}
+
+impl NewSongRow {
+    fn from_song(song: &Song) -> Result<Self, NightingaleError> {
+        Ok(Self {
+            path: song.path.to_string_lossy().into_owned(),
+            file_hash: song.file_hash.clone(),
+            title: song.title.clone(),
+            artist: song.artist.clone(),
+            album: song.album.clone(),
+            duration_secs: song.duration_secs,
+            album_art_path: song
+                .album_art_path
+                .as_ref()
+                .map(|path| path.to_string_lossy().into_owned()),
+            is_analyzed: song.is_analyzed,
+            language: song.language.clone(),
+            transcript_source: transcript_source_to_db(song.transcript_source),
+            is_video: song.is_video,
+            payload: song_to_payload(song)?,
+        })
+    }
+}
+
+pub(crate) fn song_to_payload(song: &Song) -> Result<String, NightingaleError> {
+    Ok(serde_json::to_string(song)?)
 }
 
 pub(crate) fn transcript_source_to_db(t: Option<TranscriptSource>) -> Option<String> {
-    t.map(|s| match s {
+    t.map(|source| match source {
         TranscriptSource::Lyrics => "lyrics".to_string(),
         TranscriptSource::Generated => "generated".to_string(),
         TranscriptSource::Usdx => "usdx".to_string(),
@@ -31,269 +66,215 @@ pub(crate) fn transcript_source_to_db(t: Option<TranscriptSource>) -> Option<Str
     })
 }
 
-pub(crate) const INSERT_SONG_SQL: &str = "\
-INSERT INTO songs (path, file_hash, title, artist, album, duration_secs, album_art_path,
-    is_analyzed, language, transcript_source, is_video, payload)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)";
+fn deserialize_songs(payloads: Vec<String>) -> Result<Vec<Song>, NightingaleError> {
+    payloads
+        .into_iter()
+        .map(|payload| Ok(serde_json::from_str(&payload)?))
+        .collect()
+}
 
-pub(crate) fn insert_song_row_prepared(
-    stmt: &mut rusqlite::Statement<'_>,
-    song: &Song,
-) -> rusqlite::Result<()> {
-    let payload = song_to_payload(song)?;
-    let album_art = song
-        .album_art_path
-        .as_ref()
-        .map(|p| p.to_string_lossy().into_owned());
-    stmt.execute(params![
-        song.path.to_string_lossy(),
-        song.file_hash,
-        song.title,
-        song.artist,
-        song.album,
-        song.duration_secs,
-        album_art,
-        song.is_analyzed as i32,
-        song.language,
-        transcript_source_to_db(song.transcript_source),
-        song.is_video as i32,
-        payload,
-    ])?;
+fn insert_song_row(conn: &mut SqliteConnection, row: &NewSongRow) -> QueryResult<()> {
+    diesel::insert_into(songs::table)
+        .values(row)
+        .execute(conn)?;
     Ok(())
 }
 
-pub(crate) fn load_song_from_payload_column(r: &rusqlite::Row<'_>) -> rusqlite::Result<Song> {
-    let payload: String = r.get(0)?;
-    serde_json::from_str(&payload).map_err(|e| {
-        rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
+pub(crate) fn read_library_meta() -> Result<(String, usize), NightingaleError> {
+    with_conn(|conn| {
+        let (folder, scan_count) = library_meta::table
+            .find(1_i64)
+            .select((library_meta::folder, library_meta::scan_count))
+            .first::<(String, i64)>(conn)?;
+        Ok((folder, scan_count as usize))
     })
 }
 
-pub(crate) fn read_library_meta() -> rusqlite::Result<(String, usize)> {
-    with_conn(|c| {
-        c.query_row(
-            "SELECT folder, scan_count FROM library_meta WHERE id = 1",
-            [],
-            |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? as usize)),
-        )
-    })
-}
-
-pub(crate) fn update_library_meta(folder: &str, scan_count: usize) -> rusqlite::Result<()> {
-    with_conn_mut(|c| {
-        c.execute(
-            "UPDATE library_meta SET folder = ?1, scan_count = ?2 WHERE id = 1",
-            params![folder, scan_count as i64],
-        )?;
+pub(crate) fn update_library_meta(folder: &str, scan_count: usize) -> Result<(), NightingaleError> {
+    with_conn_mut(|conn| {
+        diesel::update(library_meta::table.find(1_i64))
+            .set((
+                library_meta::folder.eq(folder),
+                library_meta::scan_count.eq(scan_count as i64),
+            ))
+            .execute(conn)?;
         Ok(())
     })
 }
 
-pub(crate) fn load_song_path_strings() -> rusqlite::Result<std::collections::HashSet<String>> {
-    with_conn(|c| {
-        let mut stmt = c.prepare("SELECT path FROM songs")?;
-        let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
-        let v: Vec<String> = rows.collect::<Result<Vec<_>, _>>()?;
-        Ok(v.into_iter().collect())
+pub(crate) fn load_song_path_strings() -> Result<HashSet<String>, NightingaleError> {
+    with_conn(|conn| {
+        Ok(songs::table
+            .select(songs::path)
+            .load::<String>(conn)?
+            .into_iter()
+            .collect())
     })
 }
 
-pub(super) fn append_songs(songs: &[Song]) -> rusqlite::Result<()> {
-    if songs.is_empty() {
+pub(super) fn append_songs(input: &[Song]) -> Result<(), NightingaleError> {
+    if input.is_empty() {
         return Ok(());
     }
-    with_conn_mut(|c| {
-        let tx = c.transaction()?;
-        {
-            let mut stmt = tx.prepare(INSERT_SONG_SQL)?;
-            for song in songs {
-                insert_song_row_prepared(&mut stmt, song)?;
+    let rows = input
+        .iter()
+        .map(NewSongRow::from_song)
+        .collect::<Result<Vec<_>, _>>()?;
+    with_conn_mut(|conn| {
+        conn.transaction::<_, NightingaleError, _>(|conn| {
+            for row in &rows {
+                insert_song_row(conn, row)?;
             }
-        }
-        tx.commit()?;
-        Ok(())
+            Ok(())
+        })
     })
 }
 
-pub(crate) fn append_songs_for_scan(songs: &[Song], generation: u64) -> rusqlite::Result<()> {
-    if songs.is_empty() || !scan_generation_is_current(generation) {
+pub(crate) fn append_songs_for_scan(
+    input: &[Song],
+    generation: u64,
+) -> Result<(), NightingaleError> {
+    if input.is_empty() || !scan_generation_is_current(generation) {
         return Ok(());
     }
-    with_conn_mut(|c| {
-        let tx = c.transaction()?;
-        {
-            let mut stmt = tx.prepare(INSERT_SONG_SQL)?;
-            for song in songs {
+    let rows = input
+        .iter()
+        .map(NewSongRow::from_song)
+        .collect::<Result<Vec<_>, _>>()?;
+    with_conn_mut(|conn| {
+        let result = conn.transaction::<_, diesel::result::Error, _>(|conn| {
+            for row in &rows {
                 if !scan_generation_is_current(generation) {
-                    return Ok(());
+                    return Err(diesel::result::Error::RollbackTransaction);
                 }
-                insert_song_row_prepared(&mut stmt, song)?;
+                insert_song_row(conn, row)?;
             }
+            if !scan_generation_is_current(generation) {
+                return Err(diesel::result::Error::RollbackTransaction);
+            }
+            Ok(())
+        });
+        match result {
+            Ok(()) | Err(diesel::result::Error::RollbackTransaction) => Ok(()),
+            Err(error) => Err(error.into()),
         }
-        if !scan_generation_is_current(generation) {
-            return Ok(());
-        }
-        tx.commit()?;
-        Ok(())
     })
 }
 
-pub(crate) fn replace_all_songs_sorted(songs: &[Song]) -> rusqlite::Result<()> {
-    with_conn_mut(|c| {
-        let tx = c.transaction()?;
-        tx.execute("DELETE FROM songs", [])?;
-        {
-            let mut stmt = tx.prepare(INSERT_SONG_SQL)?;
-            for song in songs {
-                insert_song_row_prepared(&mut stmt, song)?;
+pub(crate) fn replace_all_songs_sorted(input: &[Song]) -> Result<(), NightingaleError> {
+    let rows = input
+        .iter()
+        .map(NewSongRow::from_song)
+        .collect::<Result<Vec<_>, _>>()?;
+    with_conn_mut(|conn| {
+        conn.transaction::<_, NightingaleError, _>(|conn| {
+            diesel::delete(songs::table).execute(conn)?;
+            for row in &rows {
+                insert_song_row(conn, row)?;
             }
-        }
-        tx.commit()?;
-        Ok(())
+            Ok(())
+        })
     })
 }
 
-pub(crate) fn delete_songs_not_in_paths(paths: &[String]) -> rusqlite::Result<()> {
-    with_conn_mut(|c| {
+pub(crate) fn delete_songs_not_in_paths(paths: &[String]) -> Result<(), NightingaleError> {
+    with_conn_mut(|conn| {
         if paths.is_empty() {
-            c.execute("DELETE FROM songs", [])?;
-            return Ok(());
+            diesel::delete(songs::table).execute(conn)?;
+        } else {
+            diesel::delete(songs::table.filter(songs::path.ne_all(paths))).execute(conn)?;
         }
-        let placeholders = (1..=paths.len()).map(|_| "?").collect::<Vec<_>>().join(",");
-        let sql = format!("DELETE FROM songs WHERE path NOT IN ({placeholders})");
-        c.execute(
-            &sql,
-            rusqlite::params_from_iter(paths.iter().map(|s| s.as_str())),
-        )?;
         Ok(())
     })
 }
 
-pub(crate) fn load_song_by_hash(file_hash: &str) -> rusqlite::Result<Option<Song>> {
-    use rusqlite::OptionalExtension;
-    with_conn(|c| {
-        let mut stmt = c.prepare("SELECT payload FROM songs WHERE file_hash = ?1 LIMIT 1")?;
-        let song = stmt
-            .query_row([file_hash], |r| {
-                let payload: String = r.get(0)?;
-                serde_json::from_str::<Song>(&payload).map_err(|e| {
-                    rusqlite::Error::FromSqlConversionFailure(
-                        0,
-                        rusqlite::types::Type::Text,
-                        Box::new(e),
-                    )
-                })
-            })
+pub(crate) fn load_song_by_hash(file_hash: &str) -> Result<Option<Song>, NightingaleError> {
+    with_conn(|conn| {
+        let payload = songs::table
+            .filter(songs::file_hash.eq(file_hash))
+            .select(songs::payload)
+            .first::<String>(conn)
             .optional()?;
-        Ok(song)
+        payload
+            .map(|payload| serde_json::from_str(&payload).map_err(NightingaleError::from))
+            .transpose()
     })
 }
 
-pub(crate) fn load_songs_by_hashes(file_hashes: &[String]) -> rusqlite::Result<Vec<Song>> {
+pub(crate) fn load_songs_by_hashes(file_hashes: &[String]) -> Result<Vec<Song>, NightingaleError> {
     if file_hashes.is_empty() {
         return Ok(Vec::new());
     }
-
-    with_conn(|c| {
-        let placeholders = (1..=file_hashes.len())
-            .map(|_| "?")
-            .collect::<Vec<_>>()
-            .join(",");
-        let sql = format!("SELECT payload FROM songs WHERE file_hash IN ({placeholders})");
-        let mut stmt = c.prepare(&sql)?;
-        let rows = stmt.query_map(
-            rusqlite::params_from_iter(file_hashes.iter().map(String::as_str)),
-            load_song_from_payload_column,
-        )?;
-        rows.collect()
+    with_conn(|conn| {
+        let payloads = songs::table
+            .filter(songs::file_hash.eq_any(file_hashes))
+            .select(songs::payload)
+            .load::<String>(conn)?;
+        deserialize_songs(payloads)
     })
 }
 
-/// Rewrite a song row keyed by `old_hash` so its `file_hash`, `path`, and
-/// JSON payload reflect a freshly downloaded source whose true Blake3 differs
-/// from the placeholder we initially stored. Also points any pending row in
-/// `analysis_queue` at the new hash so the in-flight scan keeps working.
-pub(crate) fn rekey_song(old_hash: &str, new_hash: &str, new_song: &Song) -> rusqlite::Result<()> {
-    let payload = song_to_payload(new_song)?;
-    let album_art = new_song
-        .album_art_path
-        .as_ref()
-        .map(|p| p.to_string_lossy().into_owned());
-    with_conn_mut(|c| {
-        let tx = c.transaction()?;
-        tx.execute(
-            "UPDATE songs SET file_hash = ?2, path = ?3, payload = ?4, album_art_path = ?5,
-                title = ?6, artist = ?7, album = ?8, duration_secs = ?9,
-                is_analyzed = ?10, language = ?11, transcript_source = ?12, is_video = ?13
-             WHERE file_hash = ?1",
-            params![
-                old_hash,
-                new_hash,
-                new_song.path.to_string_lossy(),
-                payload,
-                album_art,
-                new_song.title,
-                new_song.artist,
-                new_song.album,
-                new_song.duration_secs,
-                new_song.is_analyzed as i32,
-                new_song.language,
-                transcript_source_to_db(new_song.transcript_source),
-                new_song.is_video as i32,
-            ],
-        )?;
-        // `analysis_queue.file_hash` is the PK; UPDATE-OR-IGNORE shape covers
-        // the (extremely unlikely) case where a row already exists for the
-        // new hash.
-        tx.execute(
-            "DELETE FROM analysis_queue WHERE file_hash = ?1",
-            params![new_hash],
-        )?;
-        tx.execute(
-            "UPDATE analysis_queue SET file_hash = ?2 WHERE file_hash = ?1",
-            params![old_hash, new_hash],
-        )?;
-        tx.commit()?;
+pub(crate) fn rekey_song(
+    old_hash: &str,
+    new_hash: &str,
+    new_song: &Song,
+) -> Result<(), NightingaleError> {
+    let row = NewSongRow::from_song(new_song)?;
+    with_conn_mut(|conn| {
+        conn.transaction::<_, NightingaleError, _>(|conn| {
+            diesel::update(songs::table.filter(songs::file_hash.eq(old_hash)))
+                .set((
+                    songs::file_hash.eq(new_hash),
+                    songs::path.eq(&row.path),
+                    songs::payload.eq(&row.payload),
+                    songs::album_art_path.eq(&row.album_art_path),
+                    songs::title.eq(&row.title),
+                    songs::artist.eq(&row.artist),
+                    songs::album.eq(&row.album),
+                    songs::duration_secs.eq(row.duration_secs),
+                    songs::is_analyzed.eq(row.is_analyzed),
+                    songs::language.eq(&row.language),
+                    songs::transcript_source.eq(&row.transcript_source),
+                    songs::is_video.eq(row.is_video),
+                ))
+                .execute(conn)?;
+            diesel::delete(analysis_queue::table.filter(analysis_queue::file_hash.eq(new_hash)))
+                .execute(conn)?;
+            diesel::update(analysis_queue::table.filter(analysis_queue::file_hash.eq(old_hash)))
+                .set(analysis_queue::file_hash.eq(new_hash))
+                .execute(conn)?;
+            Ok(())
+        })
+    })
+}
+
+pub(crate) fn update_song_fields(file_hash: &str, song: &Song) -> Result<(), NightingaleError> {
+    let row = NewSongRow::from_song(song)?;
+    with_conn_mut(|conn| {
+        diesel::update(songs::table.filter(songs::file_hash.eq(file_hash)))
+            .set((
+                songs::title.eq(&row.title),
+                songs::artist.eq(&row.artist),
+                songs::album.eq(&row.album),
+                songs::duration_secs.eq(row.duration_secs),
+                songs::album_art_path.eq(&row.album_art_path),
+                songs::is_analyzed.eq(row.is_analyzed),
+                songs::language.eq(&row.language),
+                songs::transcript_source.eq(&row.transcript_source),
+                songs::is_video.eq(row.is_video),
+                songs::payload.eq(&row.payload),
+            ))
+            .execute(conn)?;
         Ok(())
     })
 }
 
-pub(crate) fn update_song_fields(file_hash: &str, song: &Song) -> rusqlite::Result<()> {
-    let payload = song_to_payload(song)?;
-    let album_art = song
-        .album_art_path
-        .as_ref()
-        .map(|p| p.to_string_lossy().into_owned());
-    with_conn_mut(|c| {
-        c.execute(
-            "UPDATE songs SET title = ?2, artist = ?3, album = ?4, duration_secs = ?5,
-                album_art_path = ?6, is_analyzed = ?7, language = ?8, transcript_source = ?9,
-                is_video = ?10, payload = ?11
-             WHERE file_hash = ?1",
-            params![
-                file_hash,
-                song.title,
-                song.artist,
-                song.album,
-                song.duration_secs,
-                album_art,
-                song.is_analyzed as i32,
-                song.language,
-                transcript_source_to_db(song.transcript_source),
-                song.is_video as i32,
-                payload,
-            ],
-        )?;
-        Ok(())
-    })
-}
-
-pub(crate) fn load_all_songs() -> rusqlite::Result<Vec<Song>> {
-    with_conn(|c| {
-        let mut stmt = c.prepare(
-            "SELECT payload FROM songs ORDER BY artist COLLATE NOCASE, title COLLATE NOCASE",
-        )?;
-        let rows = stmt.query_map([], load_song_from_payload_column)?;
-        rows.collect()
+pub(crate) fn load_all_songs() -> Result<Vec<Song>, NightingaleError> {
+    with_conn(|conn| {
+        let payloads = songs::table
+            .select(songs::payload)
+            .order((NoCase::new(songs::artist), NoCase::new(songs::title)))
+            .load::<String>(conn)?;
+        deserialize_songs(payloads)
     })
 }

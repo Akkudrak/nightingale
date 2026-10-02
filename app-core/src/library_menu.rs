@@ -25,6 +25,6 @@ pub struct LibraryMenuItems {
     pub playlists: Vec<LibraryMenuItem>,
 }
 
-pub fn load_library_menu_items() -> rusqlite::Result<LibraryMenuItems> {
+pub fn load_library_menu_items() -> Result<LibraryMenuItems, crate::error::NightingaleError> {
     crate::library_db::query_library_menu_items()
 }

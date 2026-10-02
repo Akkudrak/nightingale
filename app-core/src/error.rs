@@ -4,6 +4,7 @@ use std::fmt;
 pub enum NightingaleError {
     Io(std::io::Error),
     Json(serde_json::Error),
+    Database(Box<dyn std::error::Error + Send + Sync + 'static>),
     /// A Jellyfin HTTP / parsing failure. `stage` is a short static breadcrumb
     /// (e.g. `"list items"`, `"download cover"`) so the message is consistent
     /// across every call site instead of every adapter rolling its own
@@ -33,6 +34,7 @@ impl fmt::Display for NightingaleError {
         match self {
             Self::Io(e) => write!(f, "{e}"),
             Self::Json(e) => write!(f, "{e}"),
+            Self::Database(source) => write!(f, "{source}"),
             Self::Jellyfin { stage, source } => write!(f, "Jellyfin {stage}: {source}"),
             Self::Navidrome { stage, source } => write!(f, "Navidrome {stage}: {source}"),
             Self::Plex { stage, source } => write!(f, "Plex {stage}: {source}"),
@@ -46,6 +48,7 @@ impl std::error::Error for NightingaleError {
         match self {
             Self::Io(e) => Some(e),
             Self::Json(e) => Some(e),
+            Self::Database(source) => Some(source.as_ref()),
             Self::Jellyfin { source, .. } => Some(source.as_ref()),
             Self::Navidrome { source, .. } => Some(source.as_ref()),
             Self::Plex { source, .. } => Some(source.as_ref()),
@@ -95,6 +98,18 @@ impl From<std::io::Error> for NightingaleError {
 impl From<serde_json::Error> for NightingaleError {
     fn from(e: serde_json::Error) -> Self {
         Self::Json(e)
+    }
+}
+
+impl From<diesel::result::Error> for NightingaleError {
+    fn from(e: diesel::result::Error) -> Self {
+        Self::Database(Box::new(e))
+    }
+}
+
+impl From<diesel::ConnectionError> for NightingaleError {
+    fn from(e: diesel::ConnectionError) -> Self {
+        Self::Database(Box::new(e))
     }
 }
 

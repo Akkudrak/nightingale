@@ -16,11 +16,15 @@ below.
 ### Features
 
 - Added a master volume control to Playback settings.
-- Playback queue songs can now be reordered by dragging or with Alt+Arrow keys.
 - Added local multiplayer playback for two to four singers, with per-player microphone and profile selection, editable queue lineups, keyboard and gamepad navigation, live scores, and ranked results.
 - **Rescan library** now also picks up analyses that another machine left in a shared cache folder: songs already in the library whose stems and transcript exist in the cache are marked ready without re-running analysis, and a toast summarizes how many were updated.
 - The lyrics editor pre-fills from a `.lrc` / `.elrc` file next to a local song's audio when the song has no lyrics yet, and offers a **Use local .lrc** action otherwise; nothing is written until Save.
 - Added the ability to toggle the display of romanized lyrics for CJK languages in Settings.
+
+### Improvements
+
+- Migrated library persistence from handwritten runtime SQL to Diesel's typed SQLite query builder without changing existing databases or library behavior.
+- Playback queue songs can now be reordered by dragging or with Alt+Arrow keys.
 
 ### Fixes
 

@@ -28,7 +28,9 @@ mod playlists;
 mod queries;
 mod rebase;
 pub(crate) mod remote;
+mod schema;
 mod songs;
+mod sql_functions;
 
 pub(crate) use analysis_queue::{
     analysis_queue_clear, analysis_queue_delete, analysis_queue_load_rows,
@@ -65,7 +67,7 @@ pub fn library_db_path() -> PathBuf {
     nightingale_dir().join("songs.db")
 }
 
-pub fn init_library() -> rusqlite::Result<()> {
+pub fn init_library() -> Result<(), crate::error::NightingaleError> {
     if connection::is_initialised() {
         return Ok(());
     }

@@ -1,34 +1,37 @@
 //! Schema migrations + one-shot data migrations.
 //!
-//! Three flavours of work live here:
-//!  - `configure` / `run_migrations` — PRAGMAs and the initial schema (run on
-//!    every connection open, idempotent via `PRAGMA user_version`).
-//!  - `maybe_start_songs_json_migration` — pre-SQL builds wrote a flat
-//!    `songs.json`; promote it into the `songs` table on a background thread
-//!    and surface progress through `is_song_migration_in_progress` / the
-//!    `song_migration_*_count` accessors used by `queries::load_meta_sql`.
-//!  - `rewrite_legacy_jellyfin_paths` — pre-2026-05 Jellyfin rows stored a
-//!    pseudo URL in `path`; rewrite to the cache-file path the rest of the
-//!    code expects. Kept here because it's an upgrade migration, not an
-//!    ongoing helper.
+//! Schema DDL and connection PRAGMAs remain SQL because Diesel migrations are SQL too.
+//! Runtime reads and writes use Diesel's typed query builder.
 
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use rusqlite::{Connection, params};
+use diesel::connection::SimpleConnection;
+use diesel::prelude::*;
+use diesel::sql_types::Integer;
+use diesel::sqlite::SqliteConnection;
 
 use crate::cache::songs_path;
+use crate::error::NightingaleError;
 use crate::library_model::SongsStore;
 use crate::song::{Song, SongOrigin};
 
 use super::connection::{with_conn, with_conn_mut};
+use super::schema::songs;
 use super::songs::{append_songs, update_library_meta};
+use super::sql_functions::json_extract_text;
 
 const SCHEMA_VERSION: i32 = 2;
 
 static MIGRATING: AtomicBool = AtomicBool::new(false);
 static MIGRATION_TOTAL: AtomicUsize = AtomicUsize::new(0);
 static MIGRATION_DONE: AtomicUsize = AtomicUsize::new(0);
+
+#[derive(QueryableByName)]
+struct UserVersion {
+    #[diesel(sql_type = Integer)]
+    user_version: i32,
+}
 
 pub(super) fn is_song_migration_in_progress() -> bool {
     MIGRATING.load(Ordering::Acquire)
@@ -42,8 +45,8 @@ pub(super) fn song_migration_done() -> usize {
     MIGRATION_DONE.load(Ordering::Acquire)
 }
 
-pub(super) fn configure(conn: &Connection) -> rusqlite::Result<()> {
-    conn.execute_batch(
+pub(super) fn configure(conn: &mut SqliteConnection) -> Result<(), NightingaleError> {
+    conn.batch_execute(
         "
         PRAGMA journal_mode = WAL;
         PRAGMA synchronous = NORMAL;
@@ -51,16 +54,19 @@ pub(super) fn configure(conn: &Connection) -> rusqlite::Result<()> {
         PRAGMA cache_size = -64000;
         PRAGMA mmap_size = 268435456;
     ",
-    )
+    )?;
+    Ok(())
 }
 
-pub(super) fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
-    let v: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-    if v >= SCHEMA_VERSION {
+pub(super) fn run_migrations(conn: &mut SqliteConnection) -> Result<(), NightingaleError> {
+    let version = diesel::sql_query("PRAGMA user_version")
+        .get_result::<UserVersion>(conn)?
+        .user_version;
+    if version >= SCHEMA_VERSION {
         return Ok(());
     }
-    if v == 0 {
-        conn.execute_batch(
+    if version == 0 {
+        conn.batch_execute(
             "
             CREATE TABLE library_meta (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -105,8 +111,8 @@ pub(super) fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
         ",
         )?;
     }
-    if v < 2 {
-        conn.execute_batch(
+    if version < 2 {
+        conn.batch_execute(
             "
             CREATE TABLE IF NOT EXISTS playlists (
                 id TEXT PRIMARY KEY,
@@ -125,7 +131,7 @@ pub(super) fn run_migrations(conn: &Connection) -> rusqlite::Result<()> {
         ",
         )?;
     }
-    conn.execute(&format!("PRAGMA user_version = {SCHEMA_VERSION}"), [])?;
+    conn.batch_execute(&format!("PRAGMA user_version = {SCHEMA_VERSION}"))?;
     Ok(())
 }
 
@@ -134,11 +140,10 @@ pub(super) fn maybe_start_songs_json_migration() {
     if !json_path.is_file() {
         return;
     }
-    let count: i64 =
-        match with_conn(|c| c.query_row("SELECT COUNT(*) FROM songs", [], |r| r.get(0))) {
-            Ok(n) => n,
-            Err(_) => return,
-        };
+    let count = match with_conn(|conn| Ok(songs::table.count().get_result::<i64>(conn)?)) {
+        Ok(count) => count,
+        Err(_) => return,
+    };
     if count > 0 {
         return;
     }
@@ -177,7 +182,7 @@ pub(super) fn maybe_start_songs_json_migration() {
 
 fn migrate_song_batches<F>(processed: &[Song], batch: usize, mut append_fn: F) -> bool
 where
-    F: FnMut(&[Song]) -> rusqlite::Result<()>,
+    F: FnMut(&[Song]) -> Result<(), NightingaleError>,
 {
     for chunk in processed.chunks(batch) {
         if append_fn(chunk).is_err() {
@@ -188,19 +193,14 @@ where
     true
 }
 
-/// One-shot startup migration: pre-2026-05 builds stored an unmaterialised
-/// Jellyfin row's `path` as `jellyfin://item/<id>`. The new code expects every
-/// row to carry the future cache-file path so the `path.is_file()` check in
-/// `ensure_local_media` works naturally. Rewrites legacy rows in-place.
-pub(crate) fn rewrite_legacy_jellyfin_paths(cache_dir: &Path) -> rusqlite::Result<()> {
-    let candidates = with_conn(|c| {
-        let mut stmt = c.prepare(
-            "SELECT file_hash, payload FROM songs
-             WHERE json_extract(payload, '$.origin.kind') = 'jellyfin'
-               AND path LIKE 'jellyfin://%'",
-        )?;
-        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
-        rows.collect::<Result<Vec<_>, _>>()
+/// One-shot startup migration for legacy Jellyfin pseudo paths.
+pub(crate) fn rewrite_legacy_jellyfin_paths(cache_dir: &Path) -> Result<(), NightingaleError> {
+    let candidates = with_conn(|conn| {
+        Ok(songs::table
+            .filter(json_extract_text(songs::payload, "$.origin.kind").eq("jellyfin"))
+            .filter(songs::path.like("jellyfin://%"))
+            .select((songs::file_hash, songs::payload))
+            .load::<(String, String)>(conn)?)
     })?;
 
     if candidates.is_empty() {
@@ -209,11 +209,8 @@ pub(crate) fn rewrite_legacy_jellyfin_paths(cache_dir: &Path) -> rusqlite::Resul
 
     let sources_dir = cache_dir.join("sources");
 
-    with_conn_mut(|c| {
-        let tx = c.transaction()?;
-        {
-            let mut stmt =
-                tx.prepare("UPDATE songs SET path = ?2, payload = ?3 WHERE file_hash = ?1")?;
+    with_conn_mut(|conn| {
+        conn.transaction::<_, NightingaleError, _>(|conn| {
             for (file_hash, payload) in candidates {
                 let Ok(mut song) = serde_json::from_str::<Song>(&payload) else {
                     continue;
@@ -228,9 +225,14 @@ pub(crate) fn rewrite_legacy_jellyfin_paths(cache_dir: &Path) -> rusqlite::Resul
                 let Ok(new_payload) = serde_json::to_string(&song) else {
                     continue;
                 };
-                stmt.execute(params![file_hash, new_path.to_string_lossy(), new_payload])?;
+                diesel::update(songs::table.filter(songs::file_hash.eq(&file_hash)))
+                    .set((
+                        songs::path.eq(new_path.to_string_lossy().as_ref()),
+                        songs::payload.eq(new_payload),
+                    ))
+                    .execute(conn)?;
             }
-        }
-        tx.commit()
+            Ok(())
+        })
     })
 }
