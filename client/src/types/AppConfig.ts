@@ -42,6 +42,7 @@ export type AppConfig = {
   align_backend: string | null;
   vocal_detection_threshold_pct: number | null;
   auto_analyze: boolean | null;
+  export_audio_codec: string | null;
   song_list_view: string | null;
   song_list_sort: SongSort[] | null;
   language_overrides: { [key in string]: string } | null;

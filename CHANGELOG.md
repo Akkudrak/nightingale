@@ -20,6 +20,9 @@ below.
 - **Rescan library** now also picks up analyses that another machine left in a shared cache folder: songs already in the library whose stems and transcript exist in the cache are marked ready without re-running analysis, and a toast summarizes how many were updated.
 - The lyrics editor pre-fills from a `.lrc` / `.elrc` file next to a local song's audio when the song has no lyrics yet, and offers a **Use local .lrc** action otherwise; nothing is written until Save.
 - Added the ability to toggle the display of romanized lyrics for CJK languages in Settings.
+- `.nge` song bundles are now a first-class library format — a single encrypted file holding a song's stems, cover, synced lyrics, transcript, and optional video. Move a `.nge` into your library folder and Nightingale registers it as an already-analyzed song and plays it (stems, guide vocal, cover, lyrics, video) **directly from the bundle without unpacking it to disk**. A `.nge` is a sealed, read-only bundle, so the mutating analysis actions (reanalyze, realign, edit lyrics, key/tempo shift) are hidden; a read-only **View lyrics** action and an **NGE** tag next to the song's language mark it. The envelope's encryption is obfuscation to deter casual inspection with generic archive tools (7-Zip, `unzip`), not strong content protection.
+- Added **export to `.nge`** — a per-song **Export (.nge)** action (analyzed local songs only; hidden for songs that are already `.nge`) and an **Export library to .nge…** bulk action in the song-list actions menu that writes every analyzed song to a folder you choose. Exported files are named `<artist>_<title>_<id>.nge`.
+- `.nge` export drops the redundant original mix when a song has separated stems (playback and scoring use the stems), roughly halving bundle size with no quality loss. An **Export quality** option in the song-list actions menu can additionally re-encode stems to Opus at 128 or 96 kbps to shrink bundles further.
 
 ### Improvements
 

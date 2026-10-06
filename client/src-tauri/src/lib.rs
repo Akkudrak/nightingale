@@ -25,8 +25,8 @@ use lyrics::{
 };
 use microphones::{list_microphones, set_monitor_gain, start_mic_capture, stop_mic_capture};
 use playback::{
-    ensure_mp3_stems, ensure_playable_source_video, fetch_pixabay_videos, get_audio_paths,
-    load_transcript,
+    ensure_mp3_stems, ensure_playable_source_video, export_library_nge, export_song_nge,
+    fetch_pixabay_videos, get_audio_paths, load_transcript,
 };
 use playback_queue::{
     add_playback_queue_entry, clear_playback_queue, load_playback_queue, move_playback_queue_entry,
@@ -165,6 +165,8 @@ pub fn run() {
             get_audio_paths,
             ensure_mp3_stems,
             ensure_playable_source_video,
+            export_song_nge,
+            export_library_nge,
             fetch_pixabay_videos,
             get_media_endpoint,
             list_microphones,
