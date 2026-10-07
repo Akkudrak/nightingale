@@ -13,7 +13,7 @@ use diesel::sqlite::SqliteConnection;
 use crate::error::NightingaleError;
 
 use super::migrations::{configure, run_migrations};
-use super::sql_functions::unicode_lower_utils;
+use super::sql_functions::{normalize_search, search_normalize_utils};
 
 static LIBRARY_DB: OnceLock<Mutex<SqliteConnection>> = OnceLock::new();
 
@@ -74,7 +74,7 @@ pub(super) fn open_connection(path: &Path) -> Result<SqliteConnection, Nightinga
     }
     let database_url = database_url(path)?;
     let mut conn = SqliteConnection::establish(&database_url)?;
-    unicode_lower_utils::register_impl(&mut conn, |input: String| input.to_lowercase())?;
+    search_normalize_utils::register_impl(&mut conn, |input: String| normalize_search(&input))?;
     configure(&mut conn)?;
     run_migrations(&mut conn)?;
     Ok(conn)
