@@ -76,7 +76,7 @@ Japanese (`ja`), Chinese (`zh`), and Cantonese (`yue`) take a dedicated forced-a
 
 Korean (`ko`) uses `kresnik/wav2vec2-large-xlsr-korean`, which is already eojeol-segmented and bypasses the character-retokenization step.
 
-For all four languages, every word is annotated with a romanized **reading** that appears above the original token during playback:
+For all four languages, every word is annotated with a romanized **reading** that can appear above the original token during playback. Use **Settings → Playback → Romanize lyrics** to enable or disable these readings:
 
 - Japanese — Hepburn romaji via [pykakasi](https://github.com/miurahr/pykakasi)
 - Chinese — tone-mark pinyin via [pypinyin](https://github.com/mozillazg/python-pinyin)

@@ -58,8 +58,10 @@ Toggle between dark and light themes from the sidebar. The theme preference is s
 | `mic_latency_compensation_sec` | Speaker-to-mic latency compensation for pitch scoring. Tune manually or use the Settings latency test. |
 | `mic_active` / `mic_monitoring` / `preferred_mic` | Microphone state and the device chosen for scoring + monitoring. Older `mic_mirroring` configs are accepted and migrated on next save. |
 | `playback_mode` | `classic` replaces the menu with playback; `session` opens playback in a dedicated desktop window or browser tab so the menu can manage the queue. |
+| `master_volume` | Overall playback volume from `0.0` to `1.0` (0–100%, default `1.0`). |
 | `lyrics_vertical_position` / `lyrics_horizontal_position` | Playback lyrics placement. Vertical: `top`, `center`, `bottom`; horizontal: `left`, `center`, `right`. |
 | `lyrics_scale` / `pitch_graph_scale` | Independent playback display scales from `0.5` to `2.5` (50–250%, default `1.0`). |
+| `lyrics_romanization_mode` | Shows (`enabled`, default) or hides (`disabled`) romanized readings above Japanese, Chinese, Cantonese, and Korean lyrics. |
 | `auto_analyze` | When `true`, scans automatically queue every unanalyzed song after they finish. |
 | `cache_paths` | Optional per-folder overrides for `songs`, `videos`, `models`, and `vendor`. Use Settings to move them so existing contents migrate safely. |
 | `last_video_flavor` | Index of the last-used Pixabay video flavor (Nature, Underwater, Space, City, Countryside). |

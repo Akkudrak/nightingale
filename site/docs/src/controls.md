@@ -30,7 +30,11 @@ Nightingale supports keyboard, gamepad, and touch input. The UI adapts to your i
 
 Touch devices show on-screen playback controls for core actions instead of relying on keyboard shortcuts.
 
-Key and tempo are adjusted from the song details sidebar after a song has been analyzed. Playback mode, lyric placement and scale, pitch-graph scale, preferred microphone, mic latency compensation, and analysis defaults live in **Settings**.
+Key and tempo are adjusted from the song details sidebar after a song has been analyzed. Playback mode, master volume, lyric placement and scale, pitch-graph scale, CJK romanization, preferred microphone, mic latency compensation, and analysis defaults live in **Settings**.
+
+## Multiplayer
+
+Use the people button beside **Play** or **Play Queue** to start a two-to-four-player session. Choose one microphone per singer and either a saved profile or **Guest**. During multiplayer, `M` and `N` are disabled because microphones are assigned to players before playback. See [Multiplayer](./multiplayer.md) for the full flow.
 
 ## Gamepad Notes
 

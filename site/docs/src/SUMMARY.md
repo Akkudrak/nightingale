@@ -13,6 +13,7 @@
   - [UltraStar Deluxe](./usdx.md)
 - [Library Sources](./library-sources.md)
 - [Scoring](./scoring.md)
+- [Multiplayer](./multiplayer.md)
 - [Backgrounds](./backgrounds.md)
 - [Profiles](./profiles.md)
 - [Configuration](./configuration.md)

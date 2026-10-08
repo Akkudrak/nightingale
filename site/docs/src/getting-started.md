@@ -56,9 +56,11 @@ When prompted, select your music folder. Nightingale scans it for supported audi
 
 Use the song-list toolbar to switch between a compact table and an artwork grid. Search combines with sidebar selections and the toolbar's analysis-status and lyric-source filters, so you can narrow the library without losing context.
 
-Select a song to open its details sidebar before playback. From there you can review the cover, metadata, and analysis state; adjust key and tempo; edit or provide lyrics; run analysis actions; play immediately; or add the song to the playback queue. Open the queue from the toolbar to see what is next, remove individual songs, start the queue, or clear it.
+Select a song to open its details sidebar before playback. From there you can review the cover, metadata, and analysis state; adjust key and tempo; edit or provide lyrics; run analysis actions; play immediately; start [multiplayer](./multiplayer.md); or add the song to the playback queue.
 
-Choose **Settings → Playback → Session mode** to open playback in a dedicated desktop window or browser tab while the menu remains available for queue management. The same settings page has a live preview for lyric placement and independent lyric and pitch-graph scaling.
+Open the queue from the toolbar to see what is next, reorder or remove songs, start the queue in solo or multiplayer mode, or clear it. Key and tempo choices are stored with each queued song.
+
+Choose **Settings → Playback → Session mode** to open playback in a dedicated desktop window or browser tab while the menu remains available for queue management. The same settings page controls master volume, lyric placement, lyric romanization, and independent lyric and pitch-graph scaling with a live preview.
 
 ## Analysis
 

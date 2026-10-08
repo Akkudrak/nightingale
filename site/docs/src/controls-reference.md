@@ -23,8 +23,8 @@ While a song is playing:
 - **+ / -**: Adjust guide vocal volume
 - **T**: Cycle through background themes (shaders, video, source)
 - **F**: Cycle through Pixabay video flavors (Nature, Underwater, Space, City, Countryside)
-- **M**: Toggle microphone for pitch scoring
-- **N**: Switch to the next available microphone
+- **M**: Toggle microphone for pitch scoring during solo playback
+- **N**: Switch to the next available microphone during solo playback
 - **R**: Toggle mic monitoring (live monitor during playback)
 - **F11**: Toggle fullscreen
 
@@ -34,7 +34,8 @@ Use the song-list toolbar to switch between table and grid views, filter by anal
 
 For an analyzed song, the details sidebar provides:
 
-- **Play**: start playback with the selected settings
+- **Play**: start solo playback with the selected settings
+- **Play multiplayer** (people button): assign two to four singers, profiles, and microphones before playback
 - **Add to queue**: save the current key and tempo choices in the set list
 - **Tempo**: adjust playback speed in small steps
 - **Key**: transpose to a more comfortable vocal range
@@ -47,9 +48,11 @@ Bulk actions apply to the current filtered list. Available actions include analy
 
 ## Playback Queue and Session Mode
 
-Open **Playback Queue** from the song-list toolbar to review the set list. The first song is marked **Next up**. You can remove individual songs, choose **Play Queue**, or clear the full queue after confirmation.
+Open **Playback Queue** from the song-list toolbar to review the set list. The first song is marked **Next up**. Drag a song's reorder handle to move it. With a keyboard, focus the handle, press Space or Enter to pick it up, move it with the Arrow keys, then press Space or Enter to drop it; press Escape to cancel.
 
-In **Settings → Playback**, choose **Session mode** to keep the menu available while playback runs in a dedicated desktop window or browser tab. **Classic mode** replaces the menu with playback in the current window.
+You can remove individual songs, choose **Play Queue**, use the people button to play the queue in multiplayer, or clear the full queue after confirmation. A multiplayer lineup stays active for subsequent queued songs, and the results screen lets you change players before starting the next song.
+
+In **Settings → Playback**, choose **Session mode** to keep the menu available while playback runs in a dedicated desktop window or browser tab. **Classic mode** replaces the menu with playback in the current window. See [Multiplayer](./multiplayer.md) for player setup and scoring behavior.
 
 ## Skip Buttons
 
