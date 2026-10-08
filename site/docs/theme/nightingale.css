@@ -1,351 +1,137 @@
-:root {
-  --bg: rgb(13, 13, 24);
-  --sidebar-bg: rgb(8, 8, 15);
-  --sidebar-fg: rgb(244, 244, 251);
-  --sidebar-active: rgb(124, 147, 255);
-  --sidebar-spacer: rgba(124, 147, 255, 0.08);
-  --content-max-width: 820px;
-  --page-padding: 15px;
-  --searchbar-border-color: rgba(124, 147, 255, 0.15);
-  --searchbar-bg: rgb(26, 26, 40);
-  --searchbar-fg: rgb(244, 244, 251);
-  --searchbar-shadow-color: transparent;
-  --searchresults-header-fg: rgb(124, 147, 255);
-  --searchresults-border-color: rgba(124, 147, 255, 0.1);
-  --links: rgb(124, 147, 255);
-  --icons: rgb(150, 150, 170);
-  --icons-hover: rgb(244, 244, 251);
-  --theme-popup-bg: rgb(26, 26, 40);
-  --theme-popup-border: rgba(124, 147, 255, 0.15);
-  --theme-hover: rgb(36, 36, 58);
-  --quote-bg: rgba(124, 147, 255, 0.06);
-  --quote-border: rgba(124, 147, 255, 0.3);
-  --table-border-color: rgba(124, 147, 255, 0.1);
-  --table-header-bg: rgb(26, 26, 40);
-  --table-alternate-bg: rgba(26, 26, 40, 0.5);
+html.nightingale {
+  --bg: #0a0a12;
+  --fg: #f4f4fb;
+  --sidebar-bg: #0d0d18;
+  --sidebar-fg: #c6c6d8;
+  --sidebar-non-existant: #aaaac1;
+  --sidebar-active: var(--links);
+  --sidebar-spacer: #343447;
+  --scrollbar: var(--sidebar-non-existant);
+  --icons: var(--sidebar-non-existant);
+  --icons-hover: var(--fg);
+  --links: #59c0e8;
+  --accent: #4a6bf7;
+  --inline-code-color: var(--sidebar-fg);
+  --theme-popup-bg: #141420;
+  --theme-popup-border: var(--sidebar-spacer);
+  --theme-hover: #1b1b2c;
+  --quote-bg: var(--theme-popup-bg);
+  --quote-border: var(--sidebar-spacer);
+  --warning-border: #ffcf4d;
+  --table-border-color: var(--sidebar-spacer);
+  --table-header-bg: var(--theme-hover);
+  --table-alternate-bg: var(--sidebar-bg);
+  --searchbar-border-color: var(--sidebar-spacer);
+  --searchbar-bg: var(--theme-popup-bg);
+  --searchbar-fg: var(--fg);
+  --searchbar-shadow-color: var(--accent);
+  --searchresults-header-fg: var(--sidebar-fg);
+  --searchresults-border-color: var(--sidebar-spacer);
+  --searchresults-li-bg: var(--theme-popup-bg);
+  --search-mark-bg: var(--searchbar-shadow-color);
+  --color-scheme: dark;
+  --copy-button-filter: invert(85%);
+  --copy-button-filter-hover: invert(72%);
+  --footnote-highlight: var(--searchbar-shadow-color);
+  --overlay-bg: #0a0a12b3;
+  --blockquote-note-color: var(--links);
+  --blockquote-tip-color: #34d17f;
+  --blockquote-important-color: #6d8bff;
+  --blockquote-warning-color: var(--warning-border);
+  --blockquote-caution-color: #ffaaa8;
+  --sidebar-header-border-color: var(--sidebar-spacer);
 }
 
-.light,
-.rust,
-.coal,
-.navy,
-.ayu,
-.nightingale {
-  --bg: rgb(13, 13, 24);
-  --fg: rgb(244, 244, 251);
-  --sidebar-bg: rgb(8, 8, 15);
-  --sidebar-fg: rgb(244, 244, 251);
-  --sidebar-active: rgb(124, 147, 255);
+html.nightingale body {
+  font-size: 1.6rem;
 }
 
-body {
-  background: rgb(13, 13, 24) !important;
-  color: rgb(244, 244, 251) !important;
+html.nightingale .content h1 {
+  color: var(--accent);
 }
 
-.sidebar {
-  background: rgb(8, 8, 15) !important;
+html.nightingale .content h2 {
+  color: var(--blockquote-important-color);
 }
 
-.sidebar .sidebar-scrollbox {
-  background: rgb(8, 8, 15) !important;
+html.nightingale .content h3 {
+  color: var(--links);
 }
 
-.sidebar a {
-  color: rgb(150, 150, 170) !important;
+html.nightingale .content h4 {
+  color: var(--sidebar-fg);
 }
 
-.sidebar a.active,
-.sidebar a:hover {
-  color: rgb(124, 147, 255) !important;
+html.nightingale .content :is(h1, h2, h3, h4) .header:is(:link, :visited) {
+  color: inherit;
 }
 
-.content {
-  background: rgb(13, 13, 24) !important;
+html.nightingale .content code {
+  background-color: var(--theme-hover);
+  color: var(--fg);
 }
 
-.page-wrapper {
-  background: rgb(13, 13, 24) !important;
+html.nightingale .content pre code {
+  background-color: var(--theme-popup-bg);
 }
 
-.menu-bar,
-.menu-bar.bordered {
-  background: rgb(13, 13, 24) !important;
-  border-bottom-color: rgba(124, 147, 255, 0.08) !important;
+html.nightingale .hljs-comment,
+html.nightingale .hljs-quote {
+  color: var(--sidebar-non-existant);
 }
 
-.menu-bar i,
-.menu-bar .icon-button {
-  color: rgb(150, 150, 170) !important;
+html.nightingale .hljs-keyword,
+html.nightingale .hljs-selector-tag,
+html.nightingale .hljs-symbol,
+html.nightingale .hljs-variable,
+html.nightingale .hljs-template-variable,
+html.nightingale .hljs-attribute,
+html.nightingale .hljs-attr,
+html.nightingale .hljs-tag,
+html.nightingale .hljs-regexp,
+html.nightingale .hljs-link,
+html.nightingale .hljs-selector-id,
+html.nightingale .hljs-selector-class {
+  color: var(--blockquote-important-color);
 }
 
-.menu-bar i:hover,
-.menu-bar .icon-button:hover {
-  color: rgb(244, 244, 251) !important;
+html.nightingale .hljs-string,
+html.nightingale .hljs-bullet,
+html.nightingale .hljs-addition {
+  color: var(--blockquote-tip-color);
 }
 
-.menu-bar .icon-button {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+html.nightingale .hljs-number,
+html.nightingale .hljs-literal,
+html.nightingale .hljs-type,
+html.nightingale .hljs-meta,
+html.nightingale .hljs-builtin-name,
+html.nightingale .hljs-params {
+  color: var(--warning-border);
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  color: rgb(244, 244, 251) !important;
+html.nightingale .hljs-title,
+html.nightingale .hljs-section,
+html.nightingale .hljs-name,
+html.nightingale .hljs-built_in {
+  color: var(--links);
 }
 
-.content main {
-  line-height: 1.5;
+html.nightingale .hljs-addition,
+html.nightingale .hljs-deletion {
+  background-color: var(--theme-popup-bg);
 }
 
-.content main {
-  padding-top: 28px;
+html.nightingale .hljs-deletion {
+  color: var(--blockquote-caution-color);
 }
 
-.content main h1 {
-  margin-top: 0;
-  margin-bottom: 20px;
-}
-
-.content main h2 {
-  margin-top: 36px;
-  margin-bottom: 10px;
-}
-
-.content main h3 {
-  margin-top: 24px;
-  margin-bottom: 8px;
-}
-
-.content main p {
-  margin-top: 0;
-  margin-bottom: 10px;
-}
-
-.content main ul,
-.content main ol {
-  margin-top: 0;
-  margin-bottom: 10px;
-}
-
-table {
-  margin-left: 0 !important;
-  margin-right: auto !important;
-}
-
-.sidebar .sidebar-scrollbox ol.chapter li.chapter-item {
-  margin-top: 8px;
-}
-
-.sidebar .sidebar-scrollbox ol.chapter li.chapter-item ol.section li {
-  margin-top: 8px;
-}
-
-a {
-  color: rgb(124, 147, 255) !important;
-}
-
-a:hover {
-  color: rgb(152, 171, 255) !important;
-}
-
-code {
-  background: rgb(26, 26, 40) !important;
-  color: rgb(244, 244, 251) !important;
-  border-radius: 4px;
-  padding: 2px 5px;
-}
-
-pre {
-  background: rgb(26, 26, 40) !important;
-  border: 1px solid rgba(124, 147, 255, 0.1);
-  border-radius: 8px;
-}
-
-pre > code {
-  padding: 0 !important;
-}
-
-table th {
-  background: rgb(26, 26, 40) !important;
-}
-
-table td,
-table th {
-  border-color: rgba(124, 147, 255, 0.1) !important;
-}
-
-table tr:nth-child(2n) {
-  background: rgba(26, 26, 40, 0.5) !important;
-}
-
-blockquote {
-  border-left: 4px solid rgba(124, 147, 255, 0.3);
-  background: rgba(124, 147, 255, 0.06);
-  padding: 10px 20px;
-  border-radius: 0 8px 8px 0;
-}
-
-.nav-chapters:hover {
-  color: rgb(244, 244, 251) !important;
-  background: rgb(26, 26, 40) !important;
-}
-
-#searchbar {
-  background: rgb(26, 26, 40) !important;
-  border-color: rgba(124, 147, 255, 0.15) !important;
-  color: rgb(244, 244, 251) !important;
-}
-
-#theme-list {
-  background: rgb(26, 26, 40) !important;
-  border-color: rgba(124, 147, 255, 0.15) !important;
-}
-
-#theme-list > button:hover {
-  background: rgb(36, 36, 58) !important;
-}
-
-pre.mermaid {
-  background: transparent !important;
-  border: none !important;
-  text-align: center;
-  padding: 24px 0 !important;
-}
-
-pre.mermaid svg {
-  max-width: 100%;
-  height: auto;
-}
-
-pre.mermaid .node rect,
-pre.mermaid .node polygon {
-  fill: rgb(26, 26, 40) !important;
-  stroke: rgba(124, 147, 255, 0.3) !important;
-  rx: 8;
-  ry: 8;
-}
-
-pre.mermaid .node .label {
-  color: rgb(244, 244, 251) !important;
-  fill: rgb(244, 244, 251) !important;
-}
-
-pre.mermaid .edgeLabel {
-  background: rgb(13, 13, 24) !important;
-  color: rgb(150, 150, 170) !important;
-  fill: rgb(150, 150, 170) !important;
-}
-
-pre.mermaid .edgeLabel rect {
-  fill: rgb(13, 13, 24) !important;
-  stroke: none !important;
-}
-
-pre.mermaid .flowchart-link {
-  stroke: rgba(124, 147, 255, 0.4) !important;
-}
-
-pre.mermaid .marker {
-  fill: rgba(124, 147, 255, 0.4) !important;
-  stroke: rgba(124, 147, 255, 0.4) !important;
-}
-
-/* ==== Modern polish: fonts + aurora background (matches landing) ==== */
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap");
-
-html {
-  background: rgb(13, 13, 24) !important;
-}
-
-body {
-  position: relative;
-}
-
-.page-wrapper::before {
+html.nightingale::before {
   content: "";
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: 35;
+  background: url("/grain.png") repeat;
+  opacity: 0.26;
   pointer-events: none;
-  background:
-    radial-gradient(55% 40% at 12% -5%, rgba(124, 147, 255, 0.16), transparent 60%),
-    radial-gradient(50% 35% at 92% 0%, rgba(255, 107, 166, 0.1), transparent 55%),
-    radial-gradient(60% 45% at 55% 6%, rgba(177, 123, 255, 0.08), transparent 60%);
-}
-
-.page,
-.menu-bar,
-.content {
-  position: relative;
-  z-index: 1;
-}
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6,
-.sidebar .sidebar-title,
-.menu-title {
-  font-family: "Space Grotesk", ui-sans-serif, system-ui, sans-serif !important;
-  letter-spacing: -0.02em;
-}
-
-.content main h1 {
-  font-weight: 700;
-  font-size: 2.8rem;
-  line-height: 1.15;
-  background: linear-gradient(115deg, #7c93ff 0%, #b17bff 48%, #ff6ba6 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent !important;
-}
-
-.content main h2 {
-  font-size: 1.85rem;
-  font-weight: 600;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(124, 147, 255, 0.14);
-}
-
-.content main h3 {
-  font-size: 1.45rem;
-  font-weight: 600;
-}
-
-/* Softer, rounder chrome */
-#searchbar,
-pre,
-code,
-blockquote,
-#theme-list,
-table th {
-  border-radius: 10px !important;
-}
-
-.sidebar a {
-  border-radius: 8px;
-  padding: 2px 8px !important;
-  transition: background 0.18s ease, color 0.18s ease;
-}
-
-.sidebar a:hover {
-  background: rgba(124, 147, 255, 0.1) !important;
-}
-
-.sidebar a.active {
-  background: rgba(124, 147, 255, 0.14) !important;
-}
-
-::selection {
-  background: rgba(124, 147, 255, 0.35);
-  color: #fff;
 }

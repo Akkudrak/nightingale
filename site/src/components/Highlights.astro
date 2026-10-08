@@ -37,133 +37,96 @@ const alsoNew = [
 ---
 
 <section id="highlights">
-  <div class="container">
-    <div class="section-head">
-      <div>
-        <span class="eyebrow">Latest release</span>
-        <h2 class="section-title">What&apos;s new in v1.2.0</h2>
-      </div>
-      <a href="/docs/" class="docs-link">
-        See full docs
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-      </a>
+  <div class="container highlights-layout">
+    <div class="highlights-lead">
+      <h2 class="section-title">What’s new in v1.2.0</h2>
+      <a href="/docs/" class="docs-link">See full docs <span aria-hidden="true">↗</span></a>
     </div>
-
-    <div class="flagship-row">
-      {
-        flagship.map((item) => (
-          <article class="highlight-card flagship">
+    <div class="highlight-list">
+      {flagship.map((item) => (
+        <article class="highlight">
+          <h3>{item.title}</h3>
+          <p>{item.description}</p>
+        </article>
+      ))}
+      <div class="also-new">
+        {alsoNew.map((item) => (
+          <article>
             <h3>{item.title}</h3>
             <p>{item.description}</p>
           </article>
-        ))
-      }
-    </div>
-
-    <div class="dense-row">
-      {
-        alsoNew.map((item) => (
-          <article class="highlight-card dense">
-            <h4>{item.title}</h4>
-            <p>{item.description}</p>
-          </article>
-        ))
-      }
+        ))}
+      </div>
     </div>
   </div>
 </section>
 
 <style>
-  .flagship-row {
+  #highlights {
+    border-top: 1px solid var(--border);
+  }
+
+  .highlights-layout {
+    display: grid;
+    grid-template-columns: 0.85fr 1.15fr;
+    gap: clamp(40px, 8vw, 120px);
+  }
+
+  .highlights-lead .docs-link {
+    display: inline-block;
+    margin-block-start: 28px;
+  }
+
+  .highlight {
+    display: grid;
+    grid-template-columns: minmax(150px, 0.7fr) 1fr;
+    gap: 24px;
+    padding-block: 26px;
+    border-top: 1px solid var(--border);
+  }
+
+  .highlight h3 {
+    font-size: 1.3rem;
+  }
+
+  .highlight p,
+  .also-new p {
+    color: var(--text-secondary);
+    font-size: 0.94rem;
+  }
+
+  .also-new {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
-    margin-bottom: 16px;
+    gap: 25px;
+    margin-block-start: 25px;
+    padding-block-start: 26px;
+    border-top: 1px solid var(--border);
   }
 
-  .dense-row {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px;
+  .also-new h3 {
+    margin-block-end: 10px;
+    font-size: 1rem;
   }
 
-  .highlight-card {
-    background: var(--surface);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border);
-    transition: transform 0.25s ease, border-color 0.25s ease,
-      background 0.25s ease;
+  @media (max-width: 850px) {
+    .highlights-layout {
+      grid-template-columns: 1fr;
+    }
   }
 
-  .highlight-card:hover {
-    transform: translateY(-3px);
-    border-color: var(--border-strong);
-    background: var(--surface-hover);
-  }
-
-  .highlight-card.flagship {
-    padding: 24px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .highlight-card.flagship::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      #4a6bf7 22%,
-      #6d8bff 50%,
-      #59c0e8 78%,
-      transparent 100%
-    );
-    opacity: 0.85;
-  }
-
-  .highlight-card.dense {
-    padding: 16px 18px;
-  }
-
-  .highlight-card h3 {
-    margin: 0 0 10px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-
-  .highlight-card h4 {
-    margin: 0 0 6px;
-    font-size: 0.92rem;
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .highlight-card.flagship p {
-    margin: 0;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    line-height: 1.55;
-  }
-
-  .highlight-card.dense p {
-    margin: 0;
-    font-size: 0.78rem;
-    color: var(--text-secondary);
-    line-height: 1.5;
-  }
-
-  @media (max-width: 720px) {
-    .flagship-row {
+  @media (max-width: 600px) {
+    .highlight,
+    .also-new {
       grid-template-columns: 1fr;
     }
 
-    .dense-row {
-      grid-template-columns: 1fr;
+    .highlight {
+      gap: 12px;
+    }
+
+    .also-new {
+      gap: 24px;
     }
   }
 </style>

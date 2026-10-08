@@ -4,91 +4,85 @@ interface Props {
   poster?: string;
 }
 
-const { src, poster } = Astro.props;
+const { src, poster = "/demo-poster.webp" } = Astro.props;
 ---
 
-<div class="video-container">
-  <video autoplay muted loop playsinline poster={poster}>
-    <source src={src} type="video/mp4" />
-  </video>
-  <button class="mute-toggle" aria-label="Unmute">
-    <svg class="icon-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-      <line x1="23" y1="9" x2="17" y2="15" />
-      <line x1="17" y1="9" x2="23" y2="15" />
-    </svg>
-    <svg class="icon-unmuted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-    </svg>
+<div class="video-shell">
+  <video playsinline preload="none" poster={poster} aria-label="Nightingale karaoke demo" data-src={src}></video>
+  <button class="play-demo" type="button" aria-label="Play Nightingale demo">
+    <span aria-hidden="true">▶</span>
+    Play demo
   </button>
 </div>
 
 <script>
-  document.querySelectorAll<HTMLButtonElement>(".mute-toggle").forEach((btn) => {
-    const video = btn.parentElement!.querySelector("video")!;
-    btn.addEventListener("click", () => {
-      video.muted = !video.muted;
-      btn.classList.toggle("is-unmuted", !video.muted);
-      btn.setAttribute("aria-label", video.muted ? "Unmute" : "Mute");
-    });
+  document.querySelectorAll<HTMLElement>(".video-shell").forEach((shell) => {
+    const video = shell.querySelector("video");
+    const button = shell.querySelector<HTMLButtonElement>(".play-demo");
+    if (!video || !button) return;
+
+    const play = () => {
+      if (!video.src && video.dataset.src) video.src = video.dataset.src;
+      video.controls = true;
+      button.hidden = true;
+      void video.play().catch(() => {
+        video.controls = false;
+        button.hidden = false;
+      });
+    };
+
+    button.addEventListener("click", play);
+    video.addEventListener("play", () => { button.hidden = true; });
   });
 </script>
 
 <style>
-  .video-container {
+  .video-shell {
     position: relative;
+    overflow: hidden;
+    aspect-ratio: 16 / 9;
+    background: var(--surface);
   }
 
   video {
     width: 100%;
     height: 100%;
-    display: block;
     object-fit: cover;
   }
 
-  .mute-toggle {
+  .play-demo {
     position: absolute;
-    bottom: 12px;
-    right: 12px;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: none;
-    background: rgba(0, 0, 0, 0.55);
-    color: white;
-    cursor: pointer;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0;
-    transition: opacity 0.2s, background 0.2s;
-    backdrop-filter: blur(4px);
+    gap: 12px;
+    width: 100%;
+    border: 0;
+    background: #05081748;
+    color: white;
+    font-weight: 700;
+    font-size: clamp(1rem, 2vw, 1.35rem);
+    text-shadow: 0 2px 10px #000;
   }
 
-  .video-container:hover .mute-toggle {
-    opacity: 1;
+  .play-demo:hover {
+    background: #05081778;
+    color: white;
   }
 
-  .mute-toggle:hover {
-    background: rgba(0, 0, 0, 0.75);
+  .play-demo span {
+    display: grid;
+    place-items: center;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--accent);
+    font-size: 1.1rem;
+    text-shadow: none;
   }
 
-  .mute-toggle svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  .mute-toggle .icon-unmuted {
+  .play-demo[hidden] {
     display: none;
-  }
-
-  .mute-toggle.is-unmuted .icon-muted {
-    display: none;
-  }
-
-  .mute-toggle.is-unmuted .icon-unmuted {
-    display: block;
   }
 </style>
