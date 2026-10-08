@@ -1,4 +1,5 @@
 mod analyzer;
+mod backgrounds;
 mod cache;
 mod config;
 mod download;
@@ -26,6 +27,12 @@ mod vendor_scripts;
 pub use analyzer::{
     AnalysisQueue, cancel_analysis, delete_cache, enqueue, realign, reanalyze_force_transcribe,
     reanalyze_full, reanalyze_transcript, refresh_metadata, shutdown_server,
+};
+pub use backgrounds::{
+    BackgroundSelection, CustomBackground, CustomBackgroundKind, CustomBackgroundSource,
+    MAX_BACKGROUND_UPLOAD_BYTES, add_custom_background_url, custom_background_kind_for_name,
+    custom_background_max_bytes, import_custom_background_file, load_custom_background_shader,
+    remove_custom_background, resolve_custom_background_path,
 };
 pub use cache::{
     CacheDir, CachePaths, CacheStats, cache_roots, change_app_data_path, clear_models,

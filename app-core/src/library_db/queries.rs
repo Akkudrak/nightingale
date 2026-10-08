@@ -17,7 +17,9 @@ use crate::song::Song;
 use super::connection::with_conn;
 use super::migrations::{is_song_migration_in_progress, song_migration_done, song_migration_total};
 use super::schema::{analysis_queue, library_meta, playlist_songs, playlists, songs};
-use super::sql_functions::{CastInteger, CastOpen, NoCase, json_extract_text, unicode_lower};
+use super::sql_functions::{
+    CastInteger, CastOpen, NoCase, json_extract_text, normalize_search, search_normalize,
+};
 
 type SongQuery = songs::BoxedQuery<'static, Sqlite>;
 
@@ -91,7 +93,7 @@ fn search_words_from_query(query: &str) -> Option<Vec<String>> {
     }
     let words = query
         .split_whitespace()
-        .map(|word| escape_like_pattern(&word.to_lowercase()))
+        .map(|word| escape_like_pattern(&normalize_search(word)))
         .filter(|word| !word.is_empty())
         .collect::<Vec<_>>();
     (!words.is_empty()).then_some(words)
@@ -117,16 +119,16 @@ fn apply_search(mut query: SongQuery, words: &[String]) -> SongQuery {
     for word in words {
         let pattern = format!("%{word}%");
         query = query.filter(
-            unicode_lower(songs::title)
+            search_normalize(songs::title)
                 .like(pattern.clone())
                 .escape('\\')
-                .or(unicode_lower(songs::artist)
+                .or(search_normalize(songs::artist)
                     .like(pattern.clone())
                     .escape('\\'))
-                .or(unicode_lower(songs::album)
+                .or(search_normalize(songs::album)
                     .like(pattern.clone())
                     .escape('\\'))
-                .or(unicode_lower(songs::path).like(pattern).escape('\\')),
+                .or(search_normalize(songs::path).like(pattern).escape('\\')),
         );
     }
     query

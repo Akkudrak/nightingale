@@ -1,24 +1,23 @@
 ---
 const steps = [
   {
-    title: "Source",
-    description:
-      "Point Nightingale at your music: a local folder, Plex Media Server, Jellyfin, or Navidrome. Run it as the desktop app or the self-hosted web build \u2014 either way, the pipeline is the same.",
+    title: "Choose music",
+    description: "Use a folder, Plex, Jellyfin, or Navidrome.",
   },
   {
-    title: "Separate",
+    title: "Prepare audio",
     description:
-      "UVR Karaoke or Demucs splits the track into vocals and instrumental. Audio is extracted from video files automatically; songs from a server are cached locally on first play.",
+      "Make an instrumental, or sing over the original mix with your own lyrics.",
   },
   {
-    title: "Transcribe",
+    title: "Get lyrics",
     description:
-      "Synced lyrics are looked up on LRCLIB first. If nothing's found, WhisperX (or Parakeet v3, experimental) transcribes the vocals with word-level alignment. CJK songs get romanized readings above each token.",
+      "Use a local LRC, paste lyrics, find a match, or transcribe the song.",
   },
   {
-    title: "Play",
+    title: "Sing",
     description:
-      "Playback includes highlighted lyrics, pitch scoring, key/tempo controls, mic monitoring, and dynamic backgrounds.",
+      "Follow synced lyrics, adjust key and tempo, and score your pitch.",
   },
 ];
 ---
@@ -26,87 +25,103 @@ const steps = [
 <section id="how-it-works">
   <div class="container">
     <div class="section-head">
-      <div>
-        <span class="eyebrow">The pipeline</span>
-        <h2 class="section-title">From track to stage in four steps</h2>
-      </div>
-      <a href="/docs/how-it-works.html" class="docs-link">
-        Read pipeline docs
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-      </a>
+      <h2 class="section-title">From track<br />to stage.</h2>
+      <a href="/docs/how-it-works.html" class="docs-link">See full process <span aria-hidden="true">↗</span></a>
     </div>
-    <div class="steps">
-      {
-        steps.map((step, i) => (
-          <div class="step">
-            <span class="step-num">{String(i + 1).padStart(2, "0")}</span>
-            <h3>{step.title}</h3>
-            <p>{step.description}</p>
-          </div>
-        ))
-      }
-    </div>
+    <ol class="steps">
+      {steps.map((step, index) => (
+        <li class="step">
+          <span class="step-num">{String(index + 1).padStart(2, "0")}</span>
+          <h3>{step.title}</h3>
+          <p>{step.description}</p>
+        </li>
+      ))}
+    </ol>
   </div>
 </section>
 
 <style>
+  #how-it-works {
+    border-top: 1px solid var(--border);
+    background: var(--bg-2);
+  }
+
   .steps {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--border);
   }
 
   .step {
-    position: relative;
-    background: var(--surface);
-    border-radius: var(--radius-lg);
-    padding: 26px 22px;
-    border: 1px solid var(--border);
-    transition: transform 0.25s ease, border-color 0.25s ease,
-      background 0.25s ease;
+    padding: 28px clamp(20px, 2.2vw, 32px) 0 0;
   }
 
-  .step:hover {
-    transform: translateY(-4px);
-    border-color: var(--border-strong);
-    background: var(--surface-hover);
+  .step:not(:first-child) {
+    padding-inline-start: clamp(20px, 2.2vw, 32px);
+    border-inline-start: 1px solid var(--border);
   }
 
   .step-num {
     display: block;
-    font-family: var(--font-display);
-    font-size: 1.7rem;
+    margin-block-end: 56px;
+    color: var(--cyan);
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
     font-weight: 700;
-    line-height: 1;
-    margin-bottom: 14px;
-    background: var(--grad-brand);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
   }
 
   .step h3 {
-    font-size: 1.05rem;
-    font-weight: 600;
-    margin-bottom: 8px;
-    letter-spacing: -0.01em;
+    margin-block-end: 16px;
+    font-size: 1.5rem;
   }
 
   .step p {
-    font-size: 0.86rem;
     color: var(--text-secondary);
-    line-height: 1.6;
+    font-size: 0.9rem;
+    line-height: 1.65;
   }
 
-  @media (max-width: 960px) {
+  @media (max-width: 840px) {
     .steps {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .step {
+      padding-block-end: 40px;
+    }
+
+    .step:nth-child(3) {
+      padding-inline-start: 0;
+      border-inline-start: 0;
+    }
+
+    .step-num {
+      margin-block-end: 24px;
     }
   }
 
-  @media (max-width: 540px) {
+  @media (max-width: 530px) {
+    #how-it-works {
+      padding-block: 56px;
+    }
+
     .steps {
       grid-template-columns: 1fr;
+    }
+
+    .step,
+    .step:not(:first-child) {
+      padding: 24px 0;
+      border-inline-start: 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .step-num {
+      margin-block-end: 16px;
     }
   }
 </style>

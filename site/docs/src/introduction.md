@@ -2,7 +2,7 @@
 
 **Karaoke from any song in your music library, powered by neural networks.**
 
-Nightingale scans your music folder, separates lead vocals from instrumentals using the UVR Karaoke model (or Demucs), transcribes lyrics with word-level timestamps via WhisperX, and plays it all back with synchronized highlighting, pitch scoring, key/tempo controls, profiles, and dynamic backgrounds.
+Nightingale scans your music folder, separates lead vocals from instrumentals using the UVR Karaoke model (or Demucs), transcribes lyrics with word-level timestamps via WhisperX, and plays it all back with synchronized highlighting, pitch scoring, local multiplayer, key/tempo controls, profiles, and dynamic backgrounds.
 
 Ships as a single binary. No manual installation of Python, ffmpeg, or ML models required — everything is downloaded and bootstrapped automatically on first launch.
 
@@ -13,10 +13,11 @@ Ships as a single binary. No manual installation of Python, ffmpeg, or ML models
 
 - **Stem Separation** — isolates lead vocals from instrumentals
 - **Word-Level Lyrics** — automatic transcription with alignment, LRCLIB matches, or your own timed LRC / Enhanced LRC and plain lyrics
-- **CJK Lyrics** — Japanese / Chinese / Cantonese / Korean songs get per-character forced alignment and romanized readings (Hepburn, pinyin, Jyutping, Revised Romanization) above each token
+- **CJK Lyrics** — Japanese / Chinese / Cantonese / Korean songs get per-character forced alignment and optional romanized readings (Hepburn, pinyin, Jyutping, Revised Romanization) above each token
 - **Pluggable ASR** — Whisper (default) or Parakeet v3 (experimental, ~25 European languages)
 - **UltraStar Deluxe Songs (experimental)** — drop USDX folders into your library and play them with their built-in pitch + lyric data
 - **Pitch Scoring** — real-time microphone input with star ratings
+- **Local Multiplayer** — two to four singers with separate microphones, profiles, live scores, and ranked results
 - **Key & Tempo Shifts** — adjust analyzed songs to better fit your voice
 - **Profiles** — per-player score tracking
 - **Video Files** — use video files with synchronized background playback

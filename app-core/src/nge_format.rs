@@ -91,7 +91,11 @@ pub fn build_nge(
 
     let options = SimpleFileOptions::default()
         .compression_method(CompressionMethod::Stored)
-        .large_file(entries.iter().any(|(_, b)| b.len() as u64 >= u32::MAX as u64));
+        .large_file(
+            entries
+                .iter()
+                .any(|(_, b)| b.len() as u64 >= u32::MAX as u64),
+        );
     let mut zip = ZipWriter::new(Cursor::new(Vec::new()));
 
     zip.start_file(MANIFEST_NAME, options).map_err(zip_err)?;

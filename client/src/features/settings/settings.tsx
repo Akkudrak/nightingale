@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 
 import { setFullScreen, isFullScreen as tauriIsFullScreen } from '@/bridge/fullScreen';
 import { clampPlaybackScale, DEFAULT_PLAYBACK_SCALE } from '@/features/playback/lib/display-scale';
+import { BackgroundSettings } from '@/features/settings/components/background-settings';
 import {
   ALIGN_BACKENDS,
   ASR_ENGINES,
@@ -122,6 +123,7 @@ export const SettingsPage = () => {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<SettingsTab>('general');
+  const [backgroundDialogOpen, setBackgroundDialogOpen] = useState(false);
   const general = generalSettings(config);
   const playback = playbackSettings(config);
   const analysis = analysisSettings(config);
@@ -222,6 +224,7 @@ export const SettingsPage = () => {
 
   const { footerSegment, getFocusClassName, syncFocusFromElement } = useSettingsNavigation({
     containerRef,
+    enabled: !backgroundDialogOpen,
     tab,
     isParakeet,
     micMonitorGain,
@@ -320,6 +323,12 @@ export const SettingsPage = () => {
               </div>
 
               <FieldGroup>
+                <BackgroundSettings
+                  selectClassName={getFocusClassName(NAV.playback.background, 0)}
+                  manageClassName={getFocusClassName(NAV.playback.background, 1)}
+                  onDialogOpenChange={setBackgroundDialogOpen}
+                />
+
                 <Field>
                   <Label htmlFor="playback-mode-1">Playback mode</Label>
                   <Hint>Choose whether playback replaces the menu or runs beside it</Hint>
