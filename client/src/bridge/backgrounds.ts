@@ -29,18 +29,25 @@ async function parseConfigResponse(response: Response): Promise<AppConfig> {
   return appConfigSchema.parse(await response.json());
 }
 
+export async function pickCustomBackgroundFile(): Promise<
+  { path: string; name: string } | undefined
+> {
+  const path = await open({ multiple: false, filters: [BACKGROUND_FILTER] });
+  return typeof path === 'string' ? { path, name: fileName(path) } : undefined;
+}
+
 export async function importCustomBackgroundFile(input: {
   name: string;
   file?: File;
-}): Promise<AppConfig | undefined> {
+  path?: string;
+}): Promise<AppConfig> {
   if (isTauri) {
-    const path = await open({ multiple: false, filters: [BACKGROUND_FILTER] });
-    if (typeof path !== 'string') {
-      return undefined;
+    if (input.path === undefined || input.path === '') {
+      throw new Error('Choose a background file');
     }
     const value = await invoke('import_custom_background', {
-      path,
-      originalName: fileName(path),
+      path: input.path,
+      originalName: fileName(input.path),
       name: input.name,
     });
     return appConfigSchema.parse(value);
