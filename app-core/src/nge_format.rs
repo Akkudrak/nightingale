@@ -32,6 +32,28 @@ use crate::error::NightingaleError;
 /// Name of the index entry inside the archive. Not a valid bundle entry name.
 const MANIFEST_NAME: &str = "manifest.json";
 
+/// Manifest version written by [`build_nge`] and the only one readers accept.
+const FORMAT_VERSION: u32 = 1;
+
+/// ZIP local file header signature.
+const ZIP_LOCAL_HEADER: &[u8; 4] = b"PK\x03\x04";
+
+/// Offset of the file name inside a ZIP local file header.
+const ZIP_NAME_OFFSET: usize = 30;
+
+/// Bytes needed by [`looks_like_nge`] to classify a file.
+pub(crate) const NGE_SNIFF_LEN: usize = ZIP_NAME_OFFSET + MANIFEST_NAME.len();
+
+/// Whether `head` starts like a bundle written by [`build_nge`]: a ZIP whose
+/// first entry is the manifest. A cheap pre-check only; a generic ZIP fails it,
+/// but passing it does not prove the bundle is valid — use [`NgeFile::verify`].
+pub(crate) fn looks_like_nge(head: &[u8]) -> bool {
+    head.len() >= NGE_SNIFF_LEN
+        && head.starts_with(ZIP_LOCAL_HEADER)
+        && u16::from_le_bytes([head[26], head[27]]) as usize == MANIFEST_NAME.len()
+        && &head[ZIP_NAME_OFFSET..NGE_SNIFF_LEN] == MANIFEST_NAME.as_bytes()
+}
+
 /// One file inside the bundle. `length` is its size in bytes; `blake3` is the
 /// first 32 hex chars of its BLAKE3 hash (same convention as `Song::file_hash`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,7 +98,7 @@ pub fn build_nge(
     entries: &[(String, Vec<u8>)],
 ) -> Result<Vec<u8>, NightingaleError> {
     let manifest = Manifest {
-        version: 1,
+        version: FORMAT_VERSION,
         file_hash: file_hash.to_string(),
         metadata,
         entries: entries
@@ -158,6 +180,21 @@ impl NgeFile {
             )));
         }
         Ok(bytes)
+    }
+
+    /// Check that this is a complete bundle: a supported manifest version and
+    /// every listed entry present with a matching BLAKE3.
+    pub(crate) fn verify(&self) -> Result<(), NightingaleError> {
+        if self.manifest.version != FORMAT_VERSION {
+            return Err(NightingaleError::Other(format!(
+                "nge: unsupported manifest version {}",
+                self.manifest.version
+            )));
+        }
+        for entry in &self.manifest.entries {
+            self.read_entry(&entry.name)?;
+        }
+        Ok(())
     }
 }
 

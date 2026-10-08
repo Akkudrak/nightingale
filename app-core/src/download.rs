@@ -5,7 +5,8 @@
 //! Safety: this is reachable from a web link, so it is strict. Only `http(s)`
 //! URLs are fetched, the response is size-capped, and the first bytes must match
 //! a known signature (`.nge` or a common audio container) before anything is
-//! written — arbitrary content is rejected. Host allowlisting / user
+//! written — arbitrary content is rejected. A `.nge` is also fully verified
+//! (manifest and entry hashes) before it replaces the `.part` file. Host allowlisting / user
 //! confirmation happens in the UI layer before this is called; this is the
 //! last-line backend enforcement.
 
@@ -14,6 +15,7 @@ use std::path::PathBuf;
 
 use crate::config::{AppConfig, LibrarySource};
 use crate::error::NightingaleError;
+use crate::nge_format::{NGE_SNIFF_LEN, NgeFile, looks_like_nge};
 
 /// Hard ceiling on a deep-link download (defense-in-depth against a hostile URL).
 const MAX_DOWNLOAD_BYTES: u64 = 128 * 1024 * 1024;
@@ -30,7 +32,7 @@ pub struct DownloadProgress {
 /// if the content isn't an accepted type. The scanner classifies by extension,
 /// so the sniffed type drives the final filename.
 fn sniff_extension(head: &[u8]) -> Option<&'static str> {
-    if head.starts_with(b"NGE\0") {
+    if looks_like_nge(head) {
         return Some("nge");
     }
     if head.starts_with(b"ID3") {
@@ -138,7 +140,7 @@ pub fn download_song_to_library(
     let mut reader = resp.into_body().into_reader();
 
     // Read the header, sniff the type, and reject early before writing anything.
-    let mut head = [0u8; 16];
+    let mut head = [0u8; NGE_SNIFF_LEN];
     let mut head_len = 0usize;
     while head_len < head.len() {
         let n = reader.read(&mut head[head_len..])?;
@@ -186,6 +188,13 @@ pub fn download_song_to_library(
     })();
 
     drop(file);
+    let result = result.and_then(|()| {
+        if ext == "nge" {
+            NgeFile::open(&part)?.verify()
+        } else {
+            Ok(())
+        }
+    });
     if let Err(e) = result {
         let _ = std::fs::remove_file(&part);
         return Err(e);
