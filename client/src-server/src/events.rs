@@ -19,6 +19,12 @@ pub(crate) struct EventBus {
     tx: broadcast::Sender<EventEnvelope>,
 }
 
+impl app_api::CommandRuntime for EventBus {
+    fn emit(&self, name: &str, payload: serde_json::Value) {
+        self.emit_value(name, payload);
+    }
+}
+
 impl EventBus {
     pub(crate) fn new() -> Self {
         let (tx, _) = broadcast::channel(CAPACITY);

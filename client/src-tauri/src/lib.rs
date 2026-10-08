@@ -1,52 +1,47 @@
-mod analyzer;
 mod backgrounds;
-mod cache;
-mod config;
 mod logging;
-mod lyrics;
 mod microphones;
-mod playback;
-mod playback_queue;
-mod playback_session;
-mod profile;
-mod scanner;
-mod vendor;
 
-use analyzer::{
-    cancel_analysis, delete_song_cache, enqueue, realign, reanalyze_force_transcribe,
-    reanalyze_full, reanalyze_transcript, refresh_metadata, shift_key, shift_tempo,
-};
-use app_core::{AppConfig, PlaybackQueue, PlaybackSessionStore, SongsStore};
-use backgrounds::{
-    add_custom_background_url, import_custom_background, load_custom_background_shader,
-    remove_custom_background, resolve_custom_background_path,
-};
+use std::{path::Path, sync::Arc};
+
+use app_api::{CommandRuntime, CommandState};
+use app_core::{AppConfig, SongsStore};
+use backgrounds::import_custom_background;
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
-use cache::{calculate_cache_stats, clear_all, clear_models_command, clear_videos_command};
-use config::{load_config, save_config};
-use lyrics::{
-    apply_timed_lyrics, load_lyrics, load_sidecar_lrc, provide_lrc, save_lyrics,
-    search_lrclib_lyrics,
-};
 use microphones::{list_microphones, set_monitor_gain, start_mic_capture, stop_mic_capture};
-use playback::{
-    ensure_mp3_stems, ensure_playable_source_video, fetch_pixabay_videos, get_audio_paths,
-    load_transcript,
-};
-use playback_queue::{
-    add_playback_queue_entry, clear_playback_queue, load_playback_queue, move_playback_queue_entry,
-    remove_playback_queue_entry,
-};
-use playback_session::{load_playback_session, save_playback_session};
-use profile::{add_score, create_profile, delete_profile, load_profiles, switch_profile};
-use scanner::{
-    clear_library_source, jellyfin_login, jellyfin_ping, load_analysis_queue,
-    load_library_menu_items, load_songs, load_songs_by_hashes, load_songs_meta, navidrome_login,
-    navidrome_ping, plex_begin_pin, plex_manual_login, plex_ping, plex_poll_pin, reconcile_cache,
-    set_library_source, trigger_scan,
-};
-use tauri::{Manager, RunEvent, WebviewWindowBuilder};
-use vendor::{is_ready, trigger_setup};
+use serde_json::Value;
+use tauri::{AppHandle, Emitter, Manager, RunEvent, WebviewWindowBuilder};
+
+#[derive(Clone)]
+struct DesktopRuntime(AppHandle);
+
+impl CommandRuntime for DesktopRuntime {
+    fn emit(&self, name: &str, payload: Value) {
+        let _ = self.0.emit(name, payload);
+    }
+
+    fn set_monitor_gain(&self, gain: f32) {
+        set_monitor_gain(gain);
+    }
+
+    fn allow_directory(&self, path: &Path) -> Result<(), String> {
+        self.0
+            .asset_protocol_scope()
+            .allow_directory(path, true)
+            .map_err(|error| format!("failed to allow asset protocol for {path:?}: {error}"))
+    }
+}
+
+#[tauri::command]
+async fn dispatch_command(
+    state: tauri::State<'_, CommandState>,
+    name: String,
+    payload: Value,
+) -> Result<Value, String> {
+    app_api::dispatch(state.inner().clone(), &name, payload)
+        .await
+        .map_err(|error| error.to_string())
+}
 
 #[tauri::command]
 fn get_media_endpoint() -> app_core::MediaEndpoint {
@@ -95,98 +90,26 @@ pub fn run() {
     logging::init();
 
     tauri::Builder::default()
-        .manage(PlaybackQueue::default())
-        .manage(PlaybackSessionStore::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_process::init())
         .invoke_handler(tauri::generate_handler![
-            // Init
+            dispatch_command,
             frontend_ready,
             window_immersive,
             minimize_window,
-            // Config
-            load_config,
-            save_config,
-            // Backgrounds
             import_custom_background,
-            add_custom_background_url,
-            remove_custom_background,
-            resolve_custom_background_path,
-            load_custom_background_shader,
-            // Cache
-            calculate_cache_stats,
-            clear_videos_command,
-            clear_models_command,
-            clear_all,
-            // Profile
-            load_profiles,
-            switch_profile,
-            create_profile,
-            delete_profile,
-            add_score,
-            // Playback queue
-            load_playback_queue,
-            add_playback_queue_entry,
-            move_playback_queue_entry,
-            remove_playback_queue_entry,
-            clear_playback_queue,
-            // Playback session
-            load_playback_session,
-            save_playback_session,
-            // Scanner
-            trigger_scan,
-            reconcile_cache,
-            set_library_source,
-            clear_library_source,
-            jellyfin_login,
-            jellyfin_ping,
-            navidrome_login,
-            navidrome_ping,
-            plex_begin_pin,
-            plex_poll_pin,
-            plex_manual_login,
-            plex_ping,
-            load_songs,
-            load_songs_by_hashes,
-            load_songs_meta,
-            load_analysis_queue,
-            load_library_menu_items,
-            // Analyzer
-            enqueue,
-            cancel_analysis,
-            delete_song_cache,
-            reanalyze_transcript,
-            reanalyze_full,
-            realign,
-            reanalyze_force_transcribe,
-            refresh_metadata,
-            shift_key,
-            shift_tempo,
-            // Lyrics
-            load_lyrics,
-            load_sidecar_lrc,
-            search_lrclib_lyrics,
-            save_lyrics,
-            provide_lrc,
-            apply_timed_lyrics,
-            // Playback
-            load_transcript,
-            get_audio_paths,
-            ensure_mp3_stems,
-            ensure_playable_source_video,
-            fetch_pixabay_videos,
             get_media_endpoint,
             list_microphones,
             start_mic_capture,
             stop_mic_capture,
-            // Vendor
-            is_ready,
-            trigger_setup
         ])
         .setup(|app| {
             let _ = dotenvy::dotenv();
+            app.manage(CommandState::new(Arc::new(DesktopRuntime(
+                app.handle().clone(),
+            ))));
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
             app_core::startup()?;

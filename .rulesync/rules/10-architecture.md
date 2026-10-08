@@ -12,12 +12,13 @@ Intended dependency direction:
 
 ```text
 React UI -> typed bridge/client port -> Tauri invoke adapter --+
-                                                      +-> app-core application/domain behavior -> infrastructure
+                                                      +-> app-api command contract -> app-core application/domain behavior -> infrastructure
 React UI -> typed bridge/client port -> HTTP/WS adapter -------+
 ```
 
 - Domain and application logic in `app-core/` must remain platform-neutral. It must not depend on React, browser globals, Tauri, Axum, transport payloads, or UI state.
-- Tauri commands in `client/src-tauri/` and HTTP/WebSocket handlers in `client/src-server/` are thin adapters: authenticate where applicable, parse and validate input, call shared behavior, and map typed output/errors.
+- Shared command names, payload decoding, command state, event emission, and error classification belong in `app-api/`; it may depend on `app-core/` but must not depend on Tauri or Axum.
+- Tauri commands in `client/src-tauri/` and HTTP/WebSocket handlers in `client/src-server/` are thin adapters: authenticate where applicable, enforce transport-specific limits, call `app-api/` or transport-specific behavior, and map typed output/errors.
 - Desktop and self-hosted delivery must use the same karaoke behavior and contracts. Do not fix parity by duplicating logic in adapters.
 - Bind concrete adapters only at explicit composition roots. Use narrow traits or typed function boundaries, not global mutable state.
 - Keep transport DTOs separate from domain models when serialization, permissions, versioning, or compatibility differ.

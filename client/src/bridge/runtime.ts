@@ -30,6 +30,17 @@ class WebChannel {
   onmessage: ((message: unknown) => void) | null = null;
 }
 
+const nativeCommands = new Set([
+  'frontend_ready',
+  'window_immersive',
+  'minimize_window',
+  'import_custom_background',
+  'get_media_endpoint',
+  'list_microphones',
+  'start_mic_capture',
+  'stop_mic_capture',
+]);
+
 const apiCall = async (name: string, args: InvokeArgs): Promise<unknown> => {
   const res = await fetch(`/api/cmd/${name}`, {
     method: 'POST',
@@ -186,7 +197,13 @@ const webListen = async (event: string, cb: EventCallback<unknown>): Promise<Unl
 
 export function invoke<T>(name: string, args?: InvokeArgs): Promise<T>;
 export function invoke(name: string, args?: InvokeArgs): Promise<unknown> {
-  return isTauri ? tauriInvoke(name, args) : apiCall(name, args);
+  if (!isTauri) {
+    return apiCall(name, args);
+  }
+  if (nativeCommands.has(name)) {
+    return tauriInvoke(name, args);
+  }
+  return tauriInvoke('dispatch_command', { name, payload: args ?? {} });
 }
 
 export function listen<T>(event: string, cb: EventCallback<T>): Promise<UnlistenFn>;

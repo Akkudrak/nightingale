@@ -20,6 +20,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 # App Core
+app-api = { path = "../../app-api" }
 app-core = { path = "../../app-core" }
 
 # Dependencies
