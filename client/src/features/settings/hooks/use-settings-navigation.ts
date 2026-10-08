@@ -46,6 +46,7 @@ function segmentSlotFromFlatIndex(segmentSizes: readonly number[], flatIndex: nu
 
 type UseSettingsNavigationOptions = {
   containerRef: RefObject<HTMLDivElement | null>;
+  enabled: boolean;
   tab: SettingsTab;
   isParakeet: boolean;
   micMonitorGain: number;
@@ -66,6 +67,7 @@ type UseSettingsNavigationOptions = {
 
 export function useSettingsNavigation({
   containerRef,
+  enabled,
   tab,
   isParakeet,
   micMonitorGain,
@@ -88,7 +90,7 @@ export function useSettingsNavigation({
   const footerSegment = stops.length - 1;
 
   const { isFocused, focusSegment } = useDialogNav({
-    open: true,
+    open: enabled,
     itemCount,
     stops,
     onBack,

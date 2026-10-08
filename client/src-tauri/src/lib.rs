@@ -1,4 +1,5 @@
 mod analyzer;
+mod backgrounds;
 mod cache;
 mod config;
 mod logging;
@@ -16,6 +17,10 @@ use analyzer::{
     reanalyze_full, reanalyze_transcript, refresh_metadata, shift_key, shift_tempo,
 };
 use app_core::{AppConfig, PlaybackQueue, PlaybackSessionStore, SongsStore};
+use backgrounds::{
+    add_custom_background_url, import_custom_background, load_custom_background_shader,
+    remove_custom_background, resolve_custom_background_path,
+};
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use cache::{calculate_cache_stats, clear_all, clear_models_command, clear_videos_command};
 use config::{load_config, save_config};
@@ -104,6 +109,12 @@ pub fn run() {
             // Config
             load_config,
             save_config,
+            // Backgrounds
+            import_custom_background,
+            add_custom_background_url,
+            remove_custom_background,
+            resolve_custom_background_path,
+            load_custom_background_shader,
             // Cache
             calculate_cache_stats,
             clear_videos_command,

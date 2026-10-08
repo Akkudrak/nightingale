@@ -1,3 +1,4 @@
+mod backgrounds;
 mod bootstrap;
 mod commands;
 mod events;
@@ -9,6 +10,7 @@ mod ws;
 
 use std::net::SocketAddr;
 
+use axum::extract::DefaultBodyLimit;
 use axum::routing::{any, get, post};
 use axum::Router;
 use clap::Parser;
@@ -76,6 +78,12 @@ async fn main() -> Result<(), String> {
     let app = Router::new()
         .route("/api/bootstrap", get(bootstrap::handle))
         .route("/api/cmd/:name", post(commands::handle_cmd))
+        .route(
+            "/api/backgrounds/upload",
+            post(backgrounds::handle_upload).layer(DefaultBodyLimit::max(
+                app_core::MAX_BACKGROUND_UPLOAD_BYTES as usize + 64 * 1024,
+            )),
+        )
         .route("/api/asset", get(media::handle_asset))
         .route("/media/:hash/:kind", get(media::handle_hashed))
         .route("/ws", any(ws::handle_upgrade))

@@ -6,6 +6,7 @@ use ts_rs::TS;
 
 use crate::secret;
 use crate::{
+    backgrounds::{BackgroundSelection, CustomBackground},
     cache::{CachePaths, config_path},
     library_model::SongSort,
 };
@@ -181,6 +182,9 @@ pub struct AppConfig {
     #[serde(default)]
     pub library_source: Option<LibrarySource>,
     pub last_theme: Option<usize>,
+    #[serde(default)]
+    pub custom_backgrounds: Vec<CustomBackground>,
+    pub last_background: Option<BackgroundSelection>,
     pub guide_volume: Option<f64>,
     pub master_volume: Option<f64>,
     pub fullscreen: Option<bool>,
@@ -247,6 +251,8 @@ impl Default for AppConfig {
             last_folder: None,
             library_source: None,
             last_theme: None,
+            custom_backgrounds: Vec::new(),
+            last_background: None,
             guide_volume: None,
             master_volume: None,
             fullscreen: None,

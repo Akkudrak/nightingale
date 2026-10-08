@@ -16,7 +16,7 @@ import {
 import { computeLyricGapCaption, findCurrentSegment } from '@/features/playback/utils/lyrics-gap';
 import type { AppConfig } from '@/types/AppConfig';
 
-import { isPixabayTheme, themeName } from './theme';
+import { isPixabayTheme, themeName, type PlaybackTheme } from './theme';
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -29,8 +29,8 @@ function formatGuideText(volume: number): string {
   return pct === 0 ? 'Guide: OFF' : `Guide: ${pct}% [G +/-]`;
 }
 
-function formatThemeText(themeIndex: number, videoFlavor: VideoFlavor): string {
-  return `Theme: ${themeName(themeIndex, videoFlavor)} [T${isPixabayTheme(themeIndex) ? '/F' : ''}]`;
+function formatThemeText(theme: PlaybackTheme, videoFlavor: VideoFlavor): string {
+  return `Theme: ${themeName(theme, videoFlavor)} [T${isPixabayTheme(theme) ? '/F' : ''}]`;
 }
 
 const SkipButton = forwardRef<HTMLButtonElement, { label: string; onClick: () => void }>(
@@ -105,7 +105,7 @@ function SettingsInfo({
   micName,
   micMonitorUserEnabled,
   multiplayer,
-  themeIndex,
+  theme,
   videoFlavor,
   showShortcuts,
 }: {
@@ -115,7 +115,7 @@ function SettingsInfo({
   micName: string;
   micMonitorUserEnabled: boolean;
   multiplayer: boolean;
-  themeIndex: number;
+  theme: PlaybackTheme;
   videoFlavor: VideoFlavor;
   showShortcuts: boolean;
 }) {
@@ -140,8 +140,8 @@ function SettingsInfo({
       </HintText>
       <HintText>
         {showShortcuts
-          ? formatThemeText(themeIndex, videoFlavor)
-          : `Theme: ${themeName(themeIndex, videoFlavor)}`}
+          ? formatThemeText(theme, videoFlavor)
+          : `Theme: ${themeName(theme, videoFlavor)}`}
       </HintText>
       {showShortcuts && <HintText>[ESC] Back</HintText>}
     </div>
@@ -162,7 +162,7 @@ function TouchControls({
   const { setGuideVolume, handlePause } = usePlaybackTransportActions();
   const { micUserEnabled, micName, micMonitorUserEnabled, multiplayer } = usePlaybackMicState();
   const { handleToggleMic, handleCycleMic, handleToggleMicMonitor } = usePlaybackMicActions();
-  const { themeIndex, videoFlavor } = usePlaybackThemeState();
+  const { theme, videoFlavor } = usePlaybackThemeState();
   const { cycleTheme, cycleFlavor } = usePlaybackThemeActions();
   const persistConfig = usePlaybackConfigPersist(config);
 
@@ -191,7 +191,7 @@ function TouchControls({
           micName={micName}
           micMonitorUserEnabled={micMonitorUserEnabled}
           multiplayer={multiplayer}
-          themeIndex={themeIndex}
+          theme={theme}
           videoFlavor={videoFlavor}
           showShortcuts={false}
         />
@@ -239,11 +239,7 @@ function TouchControls({
             onClick={handleToggleMicMonitor}
           />
           <TouchButton label="Theme" onClick={cycleTheme} />
-          <TouchButton
-            label="Flavor"
-            onClick={cycleFlavor}
-            disabled={!isPixabayTheme(themeIndex)}
-          />
+          <TouchButton label="Flavor" onClick={cycleFlavor} disabled={!isPixabayTheme(theme)} />
         </div>
       )}
     </div>
@@ -362,7 +358,7 @@ function PlaybackHudImpl({
 }: PlaybackHudProps) {
   const { duration, guideVolume, guideAvailable } = usePlaybackTransportState();
   const { subscribe, getCurrentTime } = usePlaybackTransportActions();
-  const { themeIndex, videoFlavor } = usePlaybackThemeState();
+  const { theme, videoFlavor } = usePlaybackThemeState();
   const { firstSegmentStart, lastSegmentEnd, introSkipLeadSec, segments, transcriptSource } =
     usePlaybackTranscriptState();
   const { handleSkipIntro, handleSkipOutro } = usePlaybackTranscriptActions();
@@ -376,7 +372,7 @@ function PlaybackHudImpl({
   const gapCaptionRef = useRef<HTMLOutputElement>(null);
   const gapHintRef = useRef(0);
 
-  const showPixabayCredit = isPixabayTheme(themeIndex);
+  const showPixabayCredit = isPixabayTheme(theme);
   const hasTouch = useHasTouchInput();
 
   // Update playback text without triggering React renders every frame.
@@ -484,7 +480,7 @@ function PlaybackHudImpl({
               micName={micName}
               micMonitorUserEnabled={micMonitorUserEnabled}
               multiplayer={multiplayer}
-              themeIndex={themeIndex}
+              theme={theme}
               videoFlavor={videoFlavor}
               showShortcuts={!hasTouch}
             />

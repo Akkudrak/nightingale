@@ -19,6 +19,22 @@ const cachePathsSchema: z.ZodType<CachePaths> = z.object({
   vendor: nullableString,
 });
 
+const backgroundSelectionSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('built_in_shader'), id: z.string() }),
+  z.object({ kind: z.literal('pixabay') }),
+  z.object({ kind: z.literal('custom'), id: z.string() }),
+]);
+
+const customBackgroundSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  background_type: z.enum(['image', 'shader', 'video']),
+  source: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('managed'), file_name: z.string() }),
+    z.object({ kind: z.literal('url'), url: z.string() }),
+  ]),
+});
+
 const librarySourceSchema: z.ZodType<LibrarySource> = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('folder'), path: z.string() }),
   z.object({
@@ -54,6 +70,8 @@ export const appConfigSchema: z.ZodType<AppConfig> = z.object({
   last_folder: nullableString,
   library_source: librarySourceSchema.nullable(),
   last_theme: nullableNumber,
+  custom_backgrounds: z.array(customBackgroundSchema),
+  last_background: backgroundSelectionSchema.nullable(),
   guide_volume: nullableNumber,
   master_volume: nullableNumber,
   fullscreen: nullableBoolean,

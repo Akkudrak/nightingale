@@ -108,6 +108,7 @@ export const DEFAULTS = {
   mic_latency_compensation_sec: DEFAULT_MIC_LATENCY_COMPENSATION_SEC,
   auto_analyze: false,
   master_volume: 1,
+  last_background: { kind: 'built_in_shader', id: 'plasma' },
   playback_mode: 'classic',
   lyrics_vertical_position: 'bottom',
   lyrics_horizontal_position: 'center',
@@ -127,6 +128,7 @@ export const DEFAULTS = {
   | 'mic_latency_compensation_sec'
   | 'auto_analyze'
   | 'master_volume'
+  | 'last_background'
   | 'playback_mode'
   | 'lyrics_vertical_position'
   | 'lyrics_horizontal_position'
@@ -157,13 +159,14 @@ export const NAV = {
     micTest: 5,
   },
   playback: {
-    mode: 1,
-    masterVolume: 2,
-    lyricsVerticalPosition: 3,
-    lyricsHorizontalPosition: 4,
-    lyricsScale: 5,
-    pitchGraphScale: 6,
-    lyricsRomanizationMode: 7,
+    background: 1,
+    mode: 2,
+    masterVolume: 3,
+    lyricsVerticalPosition: 4,
+    lyricsHorizontalPosition: 5,
+    lyricsScale: 6,
+    pitchGraphScale: 7,
+    lyricsRomanizationMode: 8,
   },
 } as const;
 
@@ -200,7 +203,7 @@ export function getSettingsStops(tab: SettingsTab, isParakeet: boolean) {
     return [3, 2, 1, 1, 2, 2, 2];
   }
   if (tab === 'playback') {
-    return [3, 1, 1, 1, 1, 1, 1, 2, 2];
+    return [3, 2, 1, 1, 1, 1, 1, 1, 2, 2];
   }
 
   return isParakeet

@@ -59,6 +59,12 @@ async fn dispatch(state: AppState, name: &str, payload: Value) -> CmdResult {
         "load_config" => Ok(serde_json::to_value(AppConfig::load()).map_err(serde_err)?),
         "save_config" => save_config_cmd(payload),
 
+        // ── Backgrounds ─────────────────────────────────────────────────
+        "add_custom_background_url" => add_custom_background_url_cmd(payload),
+        "remove_custom_background" => remove_custom_background_cmd(payload),
+        "resolve_custom_background_path" => resolve_custom_background_path_cmd(payload),
+        "load_custom_background_shader" => load_custom_background_shader_cmd(payload),
+
         // ── Cache ────────────────────────────────────────────────────────
         "calculate_cache_stats" => {
             Ok(serde_json::to_value(CacheStats::calculate()).map_err(serde_err)?)
@@ -535,6 +541,43 @@ fn save_config_cmd(payload: Value) -> CmdResult {
     // Web mode has no server-side cpal monitor stream, so `mic_monitor_gain`
     // is consumed entirely by the browser's monitor GainNode.
     serde_json::to_value(config).map_err(serde_err)
+}
+
+#[derive(Deserialize)]
+struct AddCustomBackgroundUrlArgs {
+    name: String,
+    url: String,
+}
+
+fn add_custom_background_url_cmd(payload: Value) -> CmdResult {
+    let args: AddCustomBackgroundUrlArgs = deserialize(payload)?;
+    let config =
+        app_core::add_custom_background_url(args.name, args.url).map_err(ApiError::bad_request)?;
+    serde_json::to_value(config).map_err(serde_err)
+}
+
+#[derive(Deserialize)]
+struct CustomBackgroundIdArgs {
+    id: String,
+}
+
+fn remove_custom_background_cmd(payload: Value) -> CmdResult {
+    let args: CustomBackgroundIdArgs = deserialize(payload)?;
+    let config = app_core::remove_custom_background(&args.id).map_err(ApiError::bad_request)?;
+    serde_json::to_value(config).map_err(serde_err)
+}
+
+fn resolve_custom_background_path_cmd(payload: Value) -> CmdResult {
+    let args: CustomBackgroundIdArgs = deserialize(payload)?;
+    let path = app_core::resolve_custom_background_path(&args.id).map_err(ApiError::bad_request)?;
+    serde_json::to_value(path).map_err(serde_err)
+}
+
+fn load_custom_background_shader_cmd(payload: Value) -> CmdResult {
+    let args: CustomBackgroundIdArgs = deserialize(payload)?;
+    let source =
+        app_core::load_custom_background_shader(&args.id).map_err(ApiError::bad_request)?;
+    serde_json::to_value(source).map_err(serde_err)
 }
 
 fn shift_key_cmd(events: std::sync::Arc<EventBus>, payload: Value) -> CmdResult {

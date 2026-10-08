@@ -15,6 +15,7 @@ below.
 
 ### Features
 
+- Added custom playback backgrounds from uploaded files or HTTPS links, automatically recognizing supported static image, Nightingale GLSL shader, and silent looping video extensions.
 - Added a master volume control to Playback settings.
 - Added local multiplayer playback for two to four singers, with per-player microphone and profile selection, editable queue lineups, keyboard and gamepad navigation, live scores, and ranked results.
 - **Rescan library** now also picks up analyses that another machine left in a shared cache folder: songs already in the library whose stems and transcript exist in the cache are marked ready without re-running analysis, and a toast summarizes how many were updated.
