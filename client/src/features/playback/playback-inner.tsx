@@ -72,10 +72,9 @@ function PlaybackLayout({
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-black" style={{ contain: 'strict' }}>
-      <Background />
-
       {isReady ? (
         <>
+          <Background />
           <PlaybackHud
             title={song.title}
             artist={song.artist}

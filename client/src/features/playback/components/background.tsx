@@ -8,7 +8,6 @@ import { usePlaybackTransportState } from '@/features/playback/providers/playbac
 import { CustomBackground } from './custom-background';
 import { PixabayVideo } from './pixabay-video';
 import { ShaderVisualizer } from './shader-visualizer';
-import { loadingFragment } from './shaders';
 import { SourceVideo } from './source-video';
 
 function ShaderBranch({ shaderIndex, isPlaying }: { shaderIndex: number; isPlaying: boolean }) {
@@ -36,16 +35,8 @@ function CustomBranch({ isPlaying }: { isPlaying: boolean }) {
 }
 
 function BackgroundImpl() {
-  const { isReady, isPlaying } = usePlaybackTransportState();
+  const { isPlaying } = usePlaybackTransportState();
   const { theme, videoFlavor, sourceVideoPath } = usePlaybackThemeState();
-
-  if (!isReady) {
-    return (
-      <div className="fixed inset-0">
-        <ShaderVisualizer shaderIndex={0} isPlaying={true} customFragment={loadingFragment} />
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0">
