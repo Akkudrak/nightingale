@@ -8,7 +8,9 @@ const { src, poster = "/demo-poster.webp" } = Astro.props;
 ---
 
 <div class="video-shell">
-  <video playsinline preload="none" poster={poster} aria-label="Nightingale karaoke demo" data-src={src}></video>
+  <video playsinline preload="none" poster={poster} aria-label="Nightingale karaoke demo">
+    <source src={src} type="video/mp4" />
+  </video>
   <button class="play-demo" type="button" aria-label="Play Nightingale demo">
     <span aria-hidden="true">▶</span>
     Play demo
@@ -22,7 +24,6 @@ const { src, poster = "/demo-poster.webp" } = Astro.props;
     if (!video || !button) return;
 
     const play = () => {
-      if (!video.src && video.dataset.src) video.src = video.dataset.src;
       video.controls = true;
       button.hidden = true;
       void video.play().catch(() => {
