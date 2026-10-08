@@ -141,7 +141,7 @@ fn resolve_original_media(song: &Song, cache: &CacheDir) -> String {
 }
 
 /// True when a song's canonical file is a `.nge` bundle (playback reads stems
-/// straight out of the encrypted file via the media server's `nge://` route).
+/// straight out of the bundle via the media server's `nge://` route).
 pub(crate) fn song_is_nge(song: &Song) -> bool {
     song.path
         .extension()
@@ -499,7 +499,7 @@ fn run_rubberband_pair_parallel(
     Ok(())
 }
 
-/// For a `.nge` song, decrypt its base stems and transcript out of the bundle
+/// For a `.nge` song, read its base stems and transcript out of the bundle
 /// into the cache under the canonical names the shift pipeline reads, so key and
 /// tempo shifting reuse the normal rubberband path unchanged. Idempotent, and a
 /// no-op for non-`.nge` songs. Note: these base files and the shifted variants

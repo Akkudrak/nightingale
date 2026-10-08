@@ -29,7 +29,7 @@ type SongDetailsSidebarProps = {
 
 /**
  * Which analysis capabilities a song supports. A `.nge` is a sealed,
- * already-analyzed bundle — its artifacts live inside the encrypted file, so
+ * already-analyzed bundle — its artifacts live inside the bundle file, so
  * the mutating actions (reanalyze, realign, edit lyrics, key/tempo shift,
  * refresh metadata) don't apply; playback stays fully available. To edit, the
  * user re-analyzes the original source and exports a fresh bundle.

@@ -1,6 +1,7 @@
 mod analyzer;
 mod cache;
 mod config;
+mod download;
 mod error;
 mod library_db;
 mod library_menu;
@@ -32,6 +33,7 @@ pub use cache::{
     set_default_data_path,
 };
 pub use config::{AppConfig, LibrarySource};
+pub use download::{DownloadProgress, download_song_to_library};
 pub use library_db::{init_library, library_db_path};
 pub use library_menu::{LibraryMenuItem, LibraryMenuItems, load_library_menu_items};
 pub use library_model::{

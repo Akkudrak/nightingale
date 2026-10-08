@@ -214,6 +214,10 @@ pub struct AppConfig {
     /// (keep stems as-is, lossless), `"opus128"`, or `"opus96"` (re-encode to
     /// Opus at that bitrate to shrink bundles). Defaults to `"none"`.
     pub export_audio_codec: Option<String>,
+    /// Hosts trusted to download from via the `nightingale://` deep link without
+    /// a confirmation prompt. Any other host prompts the user first. Empty/None
+    /// means every download is confirmed.
+    pub deep_link_allowed_hosts: Option<Vec<String>>,
     pub song_list_view: Option<String>,
     #[serde(default, deserialize_with = "deserialize_song_list_sort")]
     pub song_list_sort: Option<Vec<SongSort>>,
@@ -276,6 +280,7 @@ impl Default for AppConfig {
             vocal_detection_threshold_pct: None,
             auto_analyze: None,
             export_audio_codec: None,
+            deep_link_allowed_hosts: None,
             song_list_view: None,
             song_list_sort: None,
             language_overrides: None,

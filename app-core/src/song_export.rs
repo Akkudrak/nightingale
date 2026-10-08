@@ -2,7 +2,7 @@
 //!
 //! This is the symmetric counterpart of [`crate::song::build_nge_song`]: it
 //! gathers the song's audio plus every analysis artifact from the cache and
-//! packs them into one encrypted `.nge` (see [`crate::nge_format`]). Only
+//! packs them into one `.nge` (a ZIP archive, see [`crate::nge_format`]). Only
 //! local-origin songs can be exported — remote (Jellyfin/Navidrome/Plex) songs
 //! need a live server to be re-imported, so there is nothing self-contained to
 //! ship.
@@ -93,9 +93,10 @@ fn pack_audio_entry(
     codec: ExportCodec,
 ) -> Result<(String, Vec<u8>), NightingaleError> {
     match codec {
-        ExportCodec::Opus { bitrate_kbps } => {
-            Ok((format!("{base}.opus"), transcode_to_opus(src, bitrate_kbps)?))
-        }
+        ExportCodec::Opus { bitrate_kbps } => Ok((
+            format!("{base}.opus"),
+            transcode_to_opus(src, bitrate_kbps)?,
+        )),
         ExportCodec::None => Ok((stem_entry_name(base, src), std::fs::read(src)?)),
     }
 }
@@ -377,7 +378,7 @@ mod tests {
         assert!(imported.is_analyzed);
 
         // The bundle carries the stems and, since stems are present, drops the
-        // redundant original mix (lossless size win). Entries decrypt back to
+        // redundant original mix (lossless size win). Entries read back as
         // the exact bytes.
         let nge = crate::nge_format::NgeFile::open(&nge_path).unwrap();
         assert!(nge.manifest.entry("instrumental.mp3").is_some());

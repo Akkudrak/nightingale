@@ -1,7 +1,1 @@
 /target
-
-# No .nge key material is committed — not the real key, not a test key. The
-# build reads keys/nge_master.key (or $NGE_KEY_FILE); with no key file present
-# it falls back to a non-functional dev placeholder (see build.rs) so clones
-# still compile. Provide a real key out-of-band to pack/open real bundles.
-/keys/

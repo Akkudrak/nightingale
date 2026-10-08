@@ -178,7 +178,7 @@ fn handle_local_file(request: Request, path_segment: &str) {
         .unwrap_or_else(|_| path_segment.to_string());
 
     // `nge://<file_hash>/<entry>` rides through the same `/local/` route (so no
-    // CSP or frontend change is needed) but is served by decrypting the entry
+    // CSP or frontend change is needed) but is served by reading the entry
     // out of the song's `.nge` bundle in memory — never unpacked to disk.
     if let Some(rest) = decoded.strip_prefix("nge://") {
         match rest.split_once('/') {
@@ -329,7 +329,7 @@ fn serve_file(request: Request, file_path: &Path) {
 // audio.<ext>, video.mp4, …) out of the song's `.nge` and serve it from memory.
 // The audio player fetches whole entries (`arrayBuffer()` + `decodeAudioData`),
 // so a single full-body response is exactly what it wants; `<video>` sends
-// Range requests, which we satisfy by slicing the decrypted buffer. No
+// Range requests, which we satisfy by slicing the in-memory buffer. No
 // plaintext ever touches the disk.
 
 fn serve_nge_entry(request: Request, file_hash: &str, entry_name: &str) {
@@ -370,8 +370,8 @@ fn serve_nge_entry(request: Request, file_hash: &str, entry_name: &str) {
     {
         Ok(bytes) => bytes,
         Err(e) => {
-            warn!("[media_server] nge decrypt failed for {file_hash}/{entry_name}: {e}");
-            let _ = request.respond(with_cors(server_error("nge decrypt")));
+            warn!("[media_server] nge read failed for {file_hash}/{entry_name}: {e}");
+            let _ = request.respond(with_cors(server_error("nge read")));
             return;
         }
     };

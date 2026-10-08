@@ -377,10 +377,10 @@ pub(crate) fn build_nge_song(path: &Path, cache: &CacheDir) -> Result<Song, Nigh
         artist: meta.artist,
         album: meta.album,
         duration_secs: meta.duration_secs,
-        // The cover is a non-sensitive thumbnail; extract it to the content-
+        // Extract the cover to the content-
         // addressed cache so every `AlbumArt` render site works unchanged. The
-        // protected content (audio, stems, transcript) stays sealed in the
-        // bundle and is only ever decrypted in memory.
+        // rest (audio, stems, transcript) stays in the
+        // bundle and is only ever read in memory.
         album_art_path: extract_nge_cover(&nge, cache),
         is_analyzed: meta.is_analyzed,
         language: meta.language,

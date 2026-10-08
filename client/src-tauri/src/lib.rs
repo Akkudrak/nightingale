@@ -1,6 +1,7 @@
 mod analyzer;
 mod cache;
 mod config;
+mod download;
 mod logging;
 mod lyrics;
 mod microphones;
@@ -19,6 +20,7 @@ use app_core::{AppConfig, PlaybackQueue, PlaybackSessionStore, SongsStore};
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use cache::{calculate_cache_stats, clear_all, clear_models_command, clear_videos_command};
 use config::{load_config, save_config};
+use download::download_song;
 use lyrics::{
     apply_timed_lyrics, load_lyrics, load_sidecar_lrc, provide_lrc, save_lyrics,
     search_lrclib_lyrics,
@@ -40,8 +42,19 @@ use scanner::{
     navidrome_ping, plex_begin_pin, plex_manual_login, plex_ping, plex_poll_pin, reconcile_cache,
     set_library_source, trigger_scan,
 };
-use tauri::{Manager, RunEvent, WebviewWindowBuilder};
+use tauri::{Emitter, Manager, RunEvent, WebviewWindowBuilder};
+use tauri_plugin_deep_link::DeepLinkExt;
 use vendor::{is_ready, trigger_setup};
+
+/// Bring the main window to the foreground (used when a `nightingale://` deep
+/// link arrives and the app is already running).
+fn focus_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
 
 #[tauri::command]
 fn get_media_endpoint() -> app_core::MediaEndpoint {
@@ -90,6 +103,17 @@ pub fn run() {
     logging::init();
 
     tauri::Builder::default()
+        // Single-instance must be registered first: when a second
+        // `nightingale://` launch happens while the app is open, it forwards the
+        // argv here instead of starting a new process. We pull the deep-link URL
+        // out of argv, focus the window, and hand it to the frontend.
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            if let Some(url) = argv.iter().find(|arg| arg.starts_with("nightingale://")) {
+                focus_main_window(app);
+                let _ = app.emit("deep-link-download", url.clone());
+            }
+        }))
+        .plugin(tauri_plugin_deep_link::init())
         .manage(PlaybackQueue::default())
         .manage(PlaybackSessionStore::default())
         .plugin(tauri_plugin_dialog::init())
@@ -174,7 +198,9 @@ pub fn run() {
             stop_mic_capture,
             // Vendor
             is_ready,
-            trigger_setup
+            trigger_setup,
+            // Deep link
+            download_song
         ])
         .setup(|app| {
             let _ = dotenvy::dotenv();
@@ -183,6 +209,29 @@ pub fn run() {
             app_core::startup()?;
             app_core::media_server::start()?;
             let media_endpoint = app_core::media_server::endpoint();
+
+            // Register the `nightingale://` scheme (needed in dev; the installer
+            // registers it for release builds) and forward warm-start opens
+            // (macOS Apple events, already-running on any OS) to the frontend.
+            let _ = app.deep_link().register("nightingale");
+            {
+                let handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    for url in event.urls() {
+                        focus_main_window(&handle);
+                        let _ = handle.emit("deep-link-download", url.to_string());
+                    }
+                });
+            }
+            // Cold start: the URL that launched the app (if any), handed to the
+            // webview via the init script below.
+            let initial_deep_link: Option<String> = app
+                .deep_link()
+                .get_current()
+                .ok()
+                .flatten()
+                .and_then(|urls| urls.into_iter().next())
+                .map(|url| url.to_string());
 
             let config = AppConfig::load();
             set_monitor_gain(config.mic_monitor_gain());
@@ -211,10 +260,15 @@ pub fn run() {
                 serde_json::to_string(&media_endpoint).map_err(|e| e.to_string())?;
             let endpoint_b64 = B64.encode(endpoint_json.as_bytes());
 
+            let deep_link_json =
+                serde_json::to_string(&initial_deep_link).map_err(|e| e.to_string())?;
+            let deep_link_b64 = B64.encode(deep_link_json.as_bytes());
+
             let init_script = format!(
                 "window.__NIGHTINGALE_APP_CONFIG__ = JSON.parse(atob('{b64}')); \
                  window.__NIGHTINGALE_SONGS_META__ = JSON.parse(atob('{meta_b64}')); \
-                 window.__NIGHTINGALE_MEDIA_ENDPOINT__ = JSON.parse(atob('{endpoint_b64}'));",
+                 window.__NIGHTINGALE_MEDIA_ENDPOINT__ = JSON.parse(atob('{endpoint_b64}')); \
+                 window.__NIGHTINGALE_INITIAL_DEEP_LINK__ = JSON.parse(atob('{deep_link_b64}'));",
             );
 
             let window_config = app
