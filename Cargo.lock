@@ -6,6 +6,7 @@ version = 4
 name = "Nightingale"
 version = "1.2.0"
 dependencies = [
+ "app-api",
  "app-core",
  "base64 0.22.1",
  "cpal",
@@ -166,6 +167,16 @@ name = "anyhow"
 version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
+
+[[package]]
+name = "app-api"
+version = "1.2.0"
+dependencies = [
+ "app-core",
+ "serde",
+ "serde_json",
+ "tokio",
+]
 
 [[package]]
 name = "app-core"
@@ -4779,6 +4790,7 @@ dependencies = [
 name = "server"
 version = "1.2.0"
 dependencies = [
+ "app-api",
  "app-core",
  "axum",
  "base64 0.22.1",

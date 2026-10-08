@@ -11,6 +11,7 @@ name = "server"
 path = "src/main.rs"
 
 [dependencies]
+app-api = { path = "../../app-api" }
 app-core = { path = "../../app-core" }
 
 axum = { version = "0.7", features = ["ws", "macros", "multipart"] }
