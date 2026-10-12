@@ -24,15 +24,17 @@ ARG RUNTIME_BASE=debian:bookworm-slim
 # ── Stage 1: frontend bundle ──────────────────────────────────────────────
 # rust-embed slurps client/dist/ at compile time, so the React bundle must be
 # built before the server binary.
-FROM node:20-bookworm-slim AS frontend
+FROM node:22-bookworm-slim AS frontend
 
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@11.2.2
 
 WORKDIR /build/client
 
 # Install dependencies first so the layer is cached across source-only changes.
 COPY client/package.json client/pnpm-lock.yaml client/pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
+# --ignore-scripts: the rulesync postinstall needs .rulesync, which is outside the
+# build context. esbuild and tldjs still need their install scripts.
+RUN pnpm install --frozen-lockfile --ignore-scripts && pnpm rebuild esbuild tldjs
 
 COPY client/ ./
 RUN pnpm build
