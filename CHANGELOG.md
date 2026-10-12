@@ -34,6 +34,7 @@ below.
 
 ### Fixes
 
+- Closing the main desktop window now exits after its native webview is destroyed, preventing a lingering event loop and WebView2 window-class cleanup errors.
 - Playback windows now restore their saved size and maximized state without delaying their appearance.
 - Updated desktop microphone capture to CPAL 0.18.2, which fixes Windows ASIO device enumeration and stream creation from worker threads.
 - Song details now open without re-rendering every loaded song or initializing multiplayer devices.
