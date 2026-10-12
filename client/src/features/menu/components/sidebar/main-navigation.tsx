@@ -3,7 +3,6 @@ import {
   ChevronRight,
   Flame,
   FileQuestionMark,
-  DiscIcon,
   FolderIcon,
   ListMusicIcon,
   UserIcon,
@@ -13,6 +12,7 @@ import { Fragment, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 
 import { ANALYSIS_STATUS_STYLES } from '@/features/library/lib/analysis-status-styles';
+import { artistParents, visibleArtistAlbums } from '@/features/library/lib/artist-album-tree';
 import { folderParents, visibleFolders } from '@/features/library/lib/folder-tree';
 import {
   isLibraryMenuItemActive,
@@ -21,6 +21,7 @@ import {
 } from '@/features/library/lib/library-menu-filter';
 import { useLibraryMenuItems } from '@/features/library/queries/use-library-menu-items';
 import { useLibraryFilter } from '@/features/menu/hooks/use-library-filter';
+import { useSidebarArtistsExpanded } from '@/features/menu/hooks/use-sidebar-artists-expanded';
 import { useSidebarFoldersExpanded } from '@/features/menu/hooks/use-sidebar-folders-expanded';
 import { useSidebarSectionsOpen } from '@/features/menu/hooks/use-sidebar-sections-open';
 import { useMenuFocus } from '@/features/menu/providers/menu-focus-context';
@@ -65,7 +66,6 @@ const NAV_SECTIONS: NavSectionConfig[] = [
   { section: 'hot', label: 'Quick Filters', icon: Flame },
   { section: 'no_metadata', label: 'No Metadata', icon: FileQuestionMark },
   { section: 'artists', label: 'Artists', icon: UserIcon },
-  { section: 'albums', label: 'Albums', icon: DiscIcon },
   { section: 'playlists', label: 'Playlists', icon: ListMusicIcon },
   { section: 'folders', label: 'Folders', icon: FolderIcon },
 ];
@@ -129,32 +129,35 @@ function MenuItemCounts({ item }: MenuItemCountsProps) {
   );
 }
 
-type FolderNode = {
+type TreeNode = {
   expandable: boolean;
   expanded: boolean;
   onToggle: () => void;
 };
 
-type FolderTree = {
+type ItemTree = {
   parents: ReadonlySet<string>;
   expanded: ReadonlySet<string>;
   onToggle: (value: string) => void;
 };
+
+const itemSection = (section: LibraryMenuSection, item: LibraryMenuItem): LibraryMenuSection =>
+  section === 'artists' && item.depth === 1 ? 'albums' : section;
 
 type LibraryNavSubItemProps = {
   section: LibraryMenuSection;
   item: LibraryMenuItem;
   filter: LibraryMenuFilters;
   onSelectItem: (section: LibraryMenuSection, item: LibraryMenuItem) => void;
-  folderNode?: FolderNode;
+  treeNode?: TreeNode;
 };
 
-type FolderToggleProps = {
-  node: FolderNode;
+type TreeToggleProps = {
+  node: TreeNode;
   label: string;
 };
 
-function FolderToggle({ node, label }: FolderToggleProps) {
+function TreeToggle({ node, label }: TreeToggleProps) {
   if (!node.expandable) {
     return <span aria-hidden className="size-5 shrink-0" />;
   }
@@ -181,22 +184,22 @@ function LibraryNavSubItem({
   item,
   filter,
   onSelectItem,
-  folderNode,
+  treeNode,
 }: LibraryNavSubItemProps) {
   const { isSidebarActive, isItemFocused, itemIndex } = useSidebarRowFocus(section, item.value);
   const depth = item.depth ?? 0;
   return (
     <SidebarMenuSubItem
-      className={cn(folderNode && 'flex items-center gap-0.5')}
+      className={cn(treeNode && 'flex items-center gap-0.5')}
       style={depth > 0 ? { paddingInlineStart: `${depth * 0.75}rem` } : undefined}
     >
-      {folderNode && <FolderToggle node={folderNode} label={item.label} />}
+      {treeNode && <TreeToggle node={treeNode} label={item.label} />}
       <SidebarMenuButton
         data-sidebar-nav-index={itemIndex}
         isActive={isLibraryMenuItemActive(section, item, filter)}
         className={cn(
           'flex h-fit items-center justify-between gap-2 px-2 py-1.5 hover:ring-primary',
-          folderNode && 'min-w-0 flex-1',
+          treeNode && 'min-w-0 flex-1',
           isSidebarActive && isItemFocused && 'ring-2 ring-primary bg-sidebar-accent',
         )}
         onClick={() => onSelectItem(section, item)}
@@ -214,7 +217,7 @@ type LibraryNavSectionProps = {
   open: boolean;
   onToggleOpen: (open: boolean) => void;
   onSelectItem: (section: LibraryMenuSection, item: LibraryMenuItem) => void;
-  folderTree?: FolderTree;
+  itemTree?: ItemTree;
 } & NavSectionConfig;
 
 function LibraryNavSection({
@@ -226,7 +229,7 @@ function LibraryNavSection({
   open,
   onToggleOpen,
   onSelectItem,
-  folderTree,
+  itemTree,
 }: LibraryNavSectionProps) {
   const { isSidebarActive, isCollapseFocused, collapseIndex } = useSidebarRowFocus(section);
 
@@ -249,22 +252,25 @@ function LibraryNavSection({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <SidebarMenuSub className="mr-0 pr-0">
-            {items.map((item) => (
-              <LibraryNavSubItem
-                key={`${section}:${item.value}`}
-                section={section}
-                item={item}
-                filter={filter}
-                onSelectItem={onSelectItem}
-                folderNode={
-                  folderTree && {
-                    expandable: folderTree.parents.has(item.value),
-                    expanded: folderTree.expanded.has(item.value),
-                    onToggle: () => folderTree.onToggle(item.value),
+            {items.map((item) => {
+              const sectionForItem = itemSection(section, item);
+              return (
+                <LibraryNavSubItem
+                  key={`${sectionForItem}:${item.value}`}
+                  section={sectionForItem}
+                  item={item}
+                  filter={filter}
+                  onSelectItem={onSelectItem}
+                  treeNode={
+                    itemTree && {
+                      expandable: itemTree.parents.has(item.value),
+                      expanded: itemTree.expanded.has(item.value),
+                      onToggle: () => itemTree.onToggle(item.value),
+                    }
                   }
-                }
-              />
-            ))}
+                />
+              );
+            })}
           </SidebarMenuSub>
         </CollapsibleContent>
       </SidebarMenuItem>
@@ -293,6 +299,7 @@ export const MainNavigation = ({
   const navigate = useNavigate();
   const { setScrollContainer } = usePersistentScroll('sidebar');
   const [openBySection, setOpenBySection] = useSidebarSectionsOpen();
+  const [expandedArtists, setExpandedArtists] = useSidebarArtistsExpanded();
   const [expandedFolders, setExpandedFolders] = useSidebarFoldersExpanded();
   const filterRef = useLatestRef(filter);
 
@@ -311,7 +318,21 @@ export const MainNavigation = ({
     [isMobile, navigate, setLibraryFilter, setOpen],
   );
 
+  const parentArtists = useMemo(() => artistParents(menu?.albums ?? []), [menu]);
   const parentFolders = useMemo(() => folderParents(menu?.folders ?? []), [menu]);
+
+  const toggleArtist = useCallback(
+    (value: string) => {
+      setExpandedArtists((prev) => {
+        const next = new Set(prev);
+        if (!next.delete(value)) {
+          next.add(value);
+        }
+        return next;
+      });
+    },
+    [setExpandedArtists],
+  );
 
   const toggleFolder = useCallback(
     (value: string) => {
@@ -326,13 +347,15 @@ export const MainNavigation = ({
     [setExpandedFolders],
   );
 
-  // Activating a folder with subfolders opens it; activating it again while it
-  // is selected closes it, so keyboard and gamepad can fold the tree too.
+  // Activating a parent opens it; activating it again while selected closes it,
+  // so keyboard and gamepad can fold either tree too.
   const activateMenuItem = useCallback(
     (section: LibraryMenuSection, item: LibraryMenuItem) => {
-      if (section === 'folders' && parentFolders.has(item.value)) {
+      const parents = section === 'artists' ? parentArtists : parentFolders;
+      const setExpanded = section === 'artists' ? setExpandedArtists : setExpandedFolders;
+      if ((section === 'artists' || section === 'folders') && parents.has(item.value)) {
         const reselected = isLibraryMenuItemActive(section, item, filterRef.current);
-        setExpandedFolders((prev) => {
+        setExpanded((prev) => {
           const next = new Set(prev);
           if (reselected && prev.has(item.value)) {
             next.delete(item.value);
@@ -344,7 +367,14 @@ export const MainNavigation = ({
       }
       selectMenuItem(section, item);
     },
-    [filterRef, parentFolders, selectMenuItem, setExpandedFolders],
+    [
+      filterRef,
+      parentArtists,
+      parentFolders,
+      selectMenuItem,
+      setExpandedArtists,
+      setExpandedFolders,
+    ],
   );
 
   const visibleSections = useMemo(() => {
@@ -354,18 +384,30 @@ export const MainNavigation = ({
 
     return NAV_SECTIONS.map((config) => {
       const items = menu[config.section].filter(({ count }) => count > 0n);
-      return Object.assign(config, {
-        visibleItems: config.section === 'folders' ? visibleFolders(items, expandedFolders) : items,
-      });
+      let visibleItems = items;
+      if (config.section === 'artists') {
+        visibleItems = visibleArtistAlbums(
+          items,
+          menu.albums.filter(({ count }) => count > 0n),
+          expandedArtists,
+        );
+      } else if (config.section === 'folders') {
+        visibleItems = visibleFolders(items, expandedFolders);
+      }
+      return Object.assign({}, config, { visibleItems });
     }).filter(({ visibleItems }) => visibleItems.length > 0);
-  }, [menu, expandedFolders]);
+  }, [menu, expandedArtists, expandedFolders]);
 
   const rows = useMemo<SidebarNavRow[]>(() => {
     return visibleSections.flatMap(({ section, visibleItems }) => {
       const sectionRows: SidebarNavRow[] = [{ kind: 'collapse', section }];
       if (openBySection[section]) {
         sectionRows.push(
-          ...visibleItems.map(({ value }) => ({ kind: 'item' as const, section, value })),
+          ...visibleItems.map((item) => ({
+            kind: 'item' as const,
+            section: itemSection(section, item),
+            value: item.value,
+          })),
         );
       }
       return sectionRows;
@@ -414,6 +456,18 @@ export const MainNavigation = ({
   }, [focus.sidebarIndex, focus.source, isSidebarActive]);
 
   const showEmptyPlaceholder = !menu || visibleSections.length === 0;
+  const itemTrees: Partial<Record<LibraryMenuSection, ItemTree>> = {
+    artists: {
+      parents: parentArtists,
+      expanded: expandedArtists,
+      onToggle: toggleArtist,
+    },
+    folders: {
+      parents: parentFolders,
+      expanded: expandedFolders,
+      onToggle: toggleFolder,
+    },
+  };
 
   return (
     <SidebarContent className="overflow-hidden">
@@ -450,15 +504,7 @@ export const MainNavigation = ({
                       setOpenBySection((prev) => ({ ...prev, [config.section]: open }));
                     }}
                     onSelectItem={activateMenuItem}
-                    folderTree={
-                      config.section === 'folders'
-                        ? {
-                            parents: parentFolders,
-                            expanded: expandedFolders,
-                            onToggle: toggleFolder,
-                          }
-                        : undefined
-                    }
+                    itemTree={itemTrees[config.section]}
                   />
                 ))}
               </SidebarNavProvider>

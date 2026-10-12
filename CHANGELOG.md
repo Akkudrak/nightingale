@@ -26,6 +26,7 @@ below.
 
 ### Improvements
 
+- Albums now appear beneath expandable artists in the sidebar, while both artist and album rows remain selectable.
 - Desktop IPC and self-hosted HTTP commands now use one shared backend dispatcher, keeping command behavior and validation consistent across both runtimes.
 - Migrated library persistence from handwritten runtime SQL to Diesel's typed SQLite query builder without changing existing databases or library behavior.
 - Playback queue songs can now be reordered by dragging or with Alt+Arrow keys.
