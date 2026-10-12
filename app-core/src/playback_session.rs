@@ -2,11 +2,13 @@ use std::collections::HashSet;
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::Song;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export)]
 pub struct PlaybackPlayer {
     pub id: String,
     pub profile: Option<String>,

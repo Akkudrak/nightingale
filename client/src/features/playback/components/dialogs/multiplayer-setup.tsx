@@ -1,3 +1,4 @@
+import { useAtom } from 'jotai';
 import { PlusIcon, UsersIcon, XIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -5,6 +6,7 @@ import type { PlaybackPlayer } from '@/bridge/playback-session';
 import { playbackPlayersSchema } from '@/bridge/schemas';
 import { useDialogNav } from '@/features/menu/hooks/use-dialog-nav';
 import { useMicDevicesQuery, type MicDevice } from '@/features/microphone/queries/use-mic-devices';
+import { multiplayerPlayersAtom } from '@/features/playback/atoms/multiplayer-players';
 import { useProfiles } from '@/features/profiles/queries/use-profiles';
 import { Button } from '@/shared/components/ui/button';
 import { Checkbox } from '@/shared/components/ui/checkbox';
@@ -35,7 +37,6 @@ import type { AppConfig } from '@/types/AppConfig';
 const MAX_PLAYERS = 4;
 const RING = 'ring-2 ring-primary';
 const NO_FOCUS_RING = 'focus-visible:ring-0 focus-visible:border-transparent';
-const STORAGE_KEY = 'nightingale.multiplayer-players';
 const PROFILE_PREFIX = 'profile:';
 const GUEST_VALUE = 'guest';
 const PLAYER_COLORS = ['bg-rose-400', 'bg-fuchsia-400', 'bg-amber-400', 'bg-emerald-400'];
@@ -72,6 +73,7 @@ type InitialPlayersInput = {
   profiles: readonly string[];
   microphones: readonly MicDevice[];
   preferredMicrophone: string | null;
+  rememberedPlayers: readonly PlaybackPlayer[] | null;
 };
 
 function orderedMicrophoneIds(
@@ -91,32 +93,9 @@ function orderedMicrophoneIds(
   return [preferredDevice.deviceId, ...ids.filter((id) => id !== preferredDevice.deviceId)];
 }
 
-function loadRememberedPlayers(): PlaybackPlayer[] | null {
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === null) {
-      return null;
-    }
-    const value: unknown = JSON.parse(stored);
-    const parsed = playbackPlayersSchema.safeParse(value);
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
-  }
-}
-
-function rememberPlayers(players: readonly PlaybackPlayer[]): boolean {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(players));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function initialPlayers(input: InitialPlayersInput): PlaybackPlayer[] {
   const microphoneIds = orderedMicrophoneIds(input.microphones, input.preferredMicrophone);
-  const remembered = loadRememberedPlayers();
+  const remembered = input.rememberedPlayers;
   if (remembered === null) {
     return defaultPlayers(input.activeProfile, microphoneIds);
   }
@@ -125,7 +104,7 @@ function initialPlayers(input: InitialPlayersInput): PlaybackPlayer[] {
   const usedMicrophones = new Set<string>();
   return remembered.map((player, index) => {
     const rememberedMicrophoneAvailable =
-      microphoneIds.includes(player.microphoneId) && !usedMicrophones.has(player.microphoneId);
+      player.microphoneId !== '' && !usedMicrophones.has(player.microphoneId);
     const microphoneId = rememberedMicrophoneAvailable
       ? player.microphoneId
       : (microphoneIds.find((id) => !usedMicrophones.has(id)) ?? '');
@@ -377,6 +356,14 @@ function PlayerRows({
                     {microphone.label}
                   </SelectItem>
                 ))}
+                {player.microphoneId !== '' &&
+                  !microphones.some(
+                    (microphone) => microphone.deviceId === player.microphoneId,
+                  ) && (
+                    <SelectItem value={player.microphoneId}>
+                      Selected microphone: {player.microphoneId}
+                    </SelectItem>
+                  )}
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -441,6 +428,7 @@ export function MultiplayerSetupDialog({
     microphones.data,
     capabilityQuery.data,
   ).some((device) => device.channelCount > 1);
+  const [rememberedPlayers, setRememberedPlayers] = useAtom(multiplayerPlayersAtom);
   const [players, setPlayers] = useState<PlaybackPlayer[]>([]);
   const initialized = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -461,6 +449,7 @@ export function MultiplayerSetupDialog({
         profiles: profileStore?.profiles ?? [],
         microphones: microphones.data,
         preferredMicrophone: config?.preferred_mic ?? null,
+        rememberedPlayers,
       }),
     );
   }, [
@@ -472,6 +461,7 @@ export function MultiplayerSetupDialog({
     profileStore?.active,
     profileStore?.profiles,
     profilesLoading,
+    rememberedPlayers,
   ]);
 
   const loading = setupDataLoading(profilesLoading, configLoading, microphones.isLoading);
@@ -500,11 +490,15 @@ export function MultiplayerSetupDialog({
     cn(NO_FOCUS_RING, isFocused(segment, slot) && RING);
 
   useEffect(() => {
-    if (!open || !initialized.current || !canStart) {
+    if (!open || !initialized.current || !playbackPlayersSchema.safeParse(players).success) {
       return;
     }
-    rememberPlayers(players);
-  }, [canStart, open, players]);
+    if (players === rememberedPlayers) {
+      return;
+    }
+    setRememberedPlayers(players);
+    saveConfig({ multiplayer_players: players });
+  }, [open, players, rememberedPlayers, saveConfig, setRememberedPlayers]);
 
   const updatePlayer = (id: string, patch: Partial<PlaybackPlayer>) => {
     setPlayers((current) => updatedPlayers(current, id, patch));
@@ -543,7 +537,10 @@ export function MultiplayerSetupDialog({
     validMicrophones,
   });
 
-  const startMultiplayer = () => onStart(players);
+  const startMultiplayer = () => {
+    onStart(players);
+    closeDialog();
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
