@@ -224,10 +224,20 @@ fn write_output_frames<T, F>(
     }
 }
 
+struct MicCaptureTarget {
+    selected_channel: Option<usize>,
+    emit_audio: bool,
+    channel: Channel<MicSampleFrame>,
+    pcm: VecDeque<f32>,
+}
+
+type MicCaptureTargets = Arc<Mutex<HashMap<String, MicCaptureTarget>>>;
+
 struct MicCapture {
     shutdown: Arc<AtomicBool>,
     monitor_enabled: Arc<AtomicBool>,
-    channel: Arc<Mutex<Option<Channel<MicSampleFrame>>>>,
+    targets: MicCaptureTargets,
+    audio: Arc<Mutex<VecDeque<f32>>>,
     thread: JoinHandle<()>,
 }
 
@@ -239,19 +249,52 @@ static MIC_OP_LOCK: once_cell::sync::Lazy<Mutex<()>> =
     once_cell::sync::Lazy::new(|| Mutex::new(()));
 
 fn stop_internal(capture_id: &str) {
-    let capture = MIC_CAPTURES
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .remove(capture_id);
+    let capture = {
+        let mut captures = MIC_CAPTURES
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let device_id = captures.iter().find_map(|(device_id, capture)| {
+            capture
+                .targets
+                .lock()
+                .ok()
+                .is_some_and(|targets| targets.contains_key(capture_id))
+                .then(|| device_id.clone())
+        });
+        let Some(device_id) = device_id else {
+            return;
+        };
+
+        let remove_device = if let Some(capture) = captures.get(&device_id) {
+            let mut targets = capture
+                .targets
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            targets.remove(capture_id);
+            let monitor_enabled = targets.values().any(|target| target.emit_audio);
+            capture
+                .monitor_enabled
+                .store(monitor_enabled, Ordering::SeqCst);
+            if !monitor_enabled {
+                capture
+                    .audio
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner())
+                    .clear();
+            }
+            targets.is_empty()
+        } else {
+            false
+        };
+
+        remove_device.then(|| captures.remove(&device_id)).flatten()
+    };
     let Some(capture) = capture else {
         return;
     };
 
     capture.shutdown.store(true, Ordering::SeqCst);
     capture.monitor_enabled.store(false, Ordering::SeqCst);
-    if let Ok(mut slot) = capture.channel.lock() {
-        *slot = None;
-    }
     let _ = capture.thread.join();
 }
 
@@ -269,7 +312,14 @@ fn selected_input_channel(preference: &str) -> (&str, Option<usize>) {
     (device_id, Some(channel))
 }
 
-fn find_device(preferred: Option<&str>) -> Result<(cpal::Device, String, Option<usize>), String> {
+struct ResolvedInputDevice {
+    device: cpal::Device,
+    id: String,
+    name: String,
+    selected_channel: Option<usize>,
+}
+
+fn find_device(preferred: Option<&str>) -> Result<ResolvedInputDevice, String> {
     if let Some(preference) = preferred {
         let (device_preference, selected_channel) = selected_input_channel(preference);
         let hosts = audio_hosts();
@@ -307,7 +357,12 @@ fn find_device(preferred: Option<&str>) -> Result<(cpal::Device, String, Option<
                 if id_matches
                     || (qualified_preference.is_none() && display_name == device_preference)
                 {
-                    return Ok((dev, display_name, selected_channel));
+                    return Ok(ResolvedInputDevice {
+                        device: dev,
+                        id: format!("{host_name}:{raw_id}"),
+                        name: display_name,
+                        selected_channel,
+                    });
                 }
             }
         }
@@ -315,11 +370,22 @@ fn find_device(preferred: Option<&str>) -> Result<(cpal::Device, String, Option<
     }
 
     // No preference: use the system default input device
-    let device = cpal::default_host()
+    let host = cpal::default_host();
+    let host_name = host.id().name();
+    let device = host
         .default_input_device()
         .ok_or_else(|| "No default microphone found".to_string())?;
     let name = device_display_name(&device);
-    Ok((device, name, None))
+    let raw_id = device
+        .id()
+        .map(|id| id.to_string())
+        .unwrap_or_else(|_| name.clone());
+    Ok(ResolvedInputDevice {
+        device,
+        id: format!("{host_name}:{raw_id}"),
+        name,
+        selected_channel: None,
+    })
 }
 
 #[tauri::command]
@@ -336,38 +402,74 @@ pub(crate) fn start_mic_capture(
     stop_internal(&capture_id);
 
     let next_options = options.unwrap_or_default();
-    let (device, name, selected_channel) = find_device(preferred.as_deref())?;
+    let resolved = find_device(preferred.as_deref())?;
+    let input_config = resolved
+        .device
+        .default_input_config()
+        .map_err(|error| format!("'{}' config error: {error}", resolved.name))?;
+    let channels = input_config.channels() as usize;
+    if resolved
+        .selected_channel
+        .is_some_and(|channel| channel >= channels)
+    {
+        return Err(format!(
+            "requested input channel is unavailable for '{}'",
+            resolved.name
+        ));
+    }
+
+    let target = MicCaptureTarget {
+        selected_channel: resolved.selected_channel,
+        emit_audio: next_options.emit_audio,
+        channel: on_samples,
+        pcm: VecDeque::with_capacity(PCM_QUEUE_CAP),
+    };
+    let mut captures = MIC_CAPTURES
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(capture) = captures.get(&resolved.id) {
+        capture
+            .targets
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .insert(capture_id, target);
+        if next_options.emit_audio {
+            capture.monitor_enabled.store(true, Ordering::SeqCst);
+        }
+        return Ok(resolved.name);
+    }
+
     let shutdown = Arc::new(AtomicBool::new(false));
     let monitor_enabled = Arc::new(AtomicBool::new(next_options.emit_audio));
-    let channel = Arc::new(Mutex::new(Some(on_samples)));
+    let targets = Arc::new(Mutex::new(HashMap::from([(capture_id, target)])));
+    let audio = Arc::new(Mutex::new(VecDeque::with_capacity(AUDIO_QUEUE_CAP)));
 
-    let device_name = name.clone();
+    let device_name = resolved.name.clone();
     let worker_shutdown = Arc::clone(&shutdown);
     let worker_monitor_enabled = Arc::clone(&monitor_enabled);
-    let worker_channel = Arc::clone(&channel);
+    let worker_targets = Arc::clone(&targets);
+    let worker_audio = Arc::clone(&audio);
     let handle = std::thread::spawn(move || {
         run_mic_loop(
-            device,
-            &name,
-            selected_channel,
+            resolved.device,
+            &resolved.name,
             worker_shutdown,
             worker_monitor_enabled,
-            worker_channel,
+            worker_targets,
+            worker_audio,
         );
     });
 
-    MIC_CAPTURES
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-        .insert(
-            capture_id,
-            MicCapture {
-                shutdown,
-                monitor_enabled,
-                channel,
-                thread: handle,
-            },
-        );
+    captures.insert(
+        resolved.id,
+        MicCapture {
+            shutdown,
+            monitor_enabled,
+            targets,
+            audio,
+            thread: handle,
+        },
+    );
 
     Ok(device_name)
 }
@@ -376,36 +478,46 @@ fn try_build_stream(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
     sample_format: cpal::SampleFormat,
-    pcm_shared: Arc<Mutex<VecDeque<f32>>>,
+    targets: MicCaptureTargets,
     audio_shared: Arc<Mutex<VecDeque<f32>>>,
     monitor_enabled: Arc<AtomicBool>,
-    selected_channel: Option<usize>,
 ) -> Option<cpal::Stream> {
     let ch = config.channels as usize;
     let push_samples: SampleSink = {
-        let pcm_cb = Arc::clone(&pcm_shared);
+        let targets_cb = Arc::clone(&targets);
         let audio_cb = Arc::clone(&audio_shared);
         Arc::new(move |data: &[f32]| {
-            let mut mono_samples = Vec::with_capacity(data.len() / ch.max(1));
-            let active_channel =
-                selected_channel.unwrap_or_else(|| strongest_input_channel(data, ch));
-            for frame in data.chunks(ch) {
-                mono_samples.push(frame.get(active_channel).copied().unwrap_or(0.0));
-            }
-
-            if let Ok(mut q) = pcm_cb.try_lock() {
-                for sample in &mono_samples {
-                    q.push_back(*sample);
+            let active_channel = strongest_input_channel(data, ch);
+            let mut monitored_channels = Vec::new();
+            let Ok(mut targets) = targets_cb.try_lock() else {
+                return;
+            };
+            for target in targets.values_mut() {
+                let selected_channel = target.selected_channel.unwrap_or(active_channel);
+                for frame in data.chunks(ch) {
+                    target
+                        .pcm
+                        .push_back(frame.get(selected_channel).copied().unwrap_or(0.0));
                 }
-                while q.len() > PCM_QUEUE_CAP {
-                    q.pop_front();
+                while target.pcm.len() > PCM_QUEUE_CAP {
+                    target.pcm.pop_front();
+                }
+                if target.emit_audio {
+                    monitored_channels.push(selected_channel);
                 }
             }
+            drop(targets);
 
-            if monitor_enabled.load(Ordering::Relaxed) {
+            if monitor_enabled.load(Ordering::Relaxed) && !monitored_channels.is_empty() {
+                monitored_channels.sort_unstable();
+                monitored_channels.dedup();
                 if let Ok(mut q) = audio_cb.try_lock() {
-                    for sample in &mono_samples {
-                        q.push_back(*sample);
+                    for frame in data.chunks(ch) {
+                        let sum = monitored_channels
+                            .iter()
+                            .map(|channel| frame.get(*channel).copied().unwrap_or(0.0))
+                            .sum::<f32>();
+                        q.push_back(sum / monitored_channels.len() as f32);
                     }
                     while q.len() > AUDIO_QUEUE_CAP {
                         q.pop_front();
@@ -608,21 +720,29 @@ fn try_build_output_stream(
     Some(stream)
 }
 
-fn drain_chunk(queue: &Mutex<VecDeque<f32>>) -> Option<Vec<f32>> {
-    let mut q = queue.try_lock().ok()?;
-    if q.len() < SAMPLE_CHUNK {
-        return None;
+fn drain_target_chunks(targets: &MicCaptureTargets) -> Vec<(Channel<MicSampleFrame>, Vec<f32>)> {
+    let Ok(mut targets) = targets.try_lock() else {
+        return Vec::new();
+    };
+    let mut chunks = Vec::new();
+    for target in targets.values_mut() {
+        while target.pcm.len() >= SAMPLE_CHUNK {
+            chunks.push((
+                target.channel.clone(),
+                target.pcm.drain(..SAMPLE_CHUNK).collect(),
+            ));
+        }
     }
-    Some(q.drain(..SAMPLE_CHUNK).collect())
+    chunks
 }
 
 fn run_mic_loop(
     device: cpal::Device,
     name: &str,
-    selected_channel: Option<usize>,
     shutdown: Arc<AtomicBool>,
     monitor_enabled: Arc<AtomicBool>,
-    channel: Arc<Mutex<Option<Channel<MicSampleFrame>>>>,
+    targets: MicCaptureTargets,
+    audio_shared: Arc<Mutex<VecDeque<f32>>>,
 ) {
     let default_cfg = match device.default_input_config() {
         Ok(c) => c,
@@ -640,51 +760,28 @@ fn run_mic_loop(
     };
     let sr = config.sample_rate;
 
-    if selected_channel.is_some_and(|channel| channel >= config.channels as usize) {
-        warn!("[mic] requested input channel is unavailable for '{name}'");
-        return;
-    }
-
     info!(
         "[mic] opening '{name}': {sr} Hz, {}ch, {sample_format:?}",
         config.channels
     );
 
-    let pcm_shared = Arc::new(Mutex::new(VecDeque::<f32>::with_capacity(PCM_QUEUE_CAP)));
-    let audio_shared = Arc::new(Mutex::new(VecDeque::<f32>::with_capacity(AUDIO_QUEUE_CAP)));
     let Some(_stream) = try_build_stream(
         &device,
         &config,
         sample_format,
-        Arc::clone(&pcm_shared),
+        Arc::clone(&targets),
         Arc::clone(&audio_shared),
         Arc::clone(&monitor_enabled),
-        selected_channel,
     ) else {
         warn!("[mic] failed to open '{name}'");
         return;
     };
-    let monitor_stream = if monitor_enabled.load(Ordering::Relaxed) {
-        cpal::default_host()
-            .default_output_device()
-            .and_then(|output_device| {
-                try_build_output_stream(
-                    &output_device,
-                    sr,
-                    Arc::clone(&audio_shared),
-                    Arc::clone(&monitor_enabled),
-                )
-            })
-    } else {
-        None
-    };
-    if monitor_enabled.load(Ordering::Relaxed) && monitor_stream.is_none() {
-        warn!("[mic] no output monitoring stream available");
-    }
 
     info!("[mic] active: {name}");
 
     let sleep_dur = std::time::Duration::from_millis(4);
+    let mut monitor_stream = None;
+    let mut monitor_attempted = false;
 
     loop {
         std::thread::sleep(sleep_dur);
@@ -693,16 +790,39 @@ fn run_mic_loop(
             break;
         }
 
-        while let Some(samples) = drain_chunk(&pcm_shared) {
-            let channel = channel.lock().ok().and_then(|slot| slot.clone());
-            if let Some(channel) = channel {
-                let frame = MicSampleFrame {
-                    sample_rate: sr,
-                    samples,
-                };
-                if let Err(e) = channel.send(frame) {
-                    warn!("[mic] channel send failed: {e}");
-                }
+        let monitoring = monitor_enabled.load(Ordering::Relaxed);
+        if monitoring && !monitor_attempted {
+            monitor_attempted = true;
+            monitor_stream =
+                cpal::default_host()
+                    .default_output_device()
+                    .and_then(|output_device| {
+                        try_build_output_stream(
+                            &output_device,
+                            sr,
+                            Arc::clone(&audio_shared),
+                            Arc::clone(&monitor_enabled),
+                        )
+                    });
+            if monitor_stream.is_none() {
+                warn!("[mic] no output monitoring stream available");
+            }
+        } else if !monitoring && monitor_attempted {
+            monitor_attempted = false;
+            monitor_stream.take();
+            audio_shared
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .clear();
+        }
+
+        for (channel, samples) in drain_target_chunks(&targets) {
+            let frame = MicSampleFrame {
+                sample_rate: sr,
+                samples,
+            };
+            if let Err(e) = channel.send(frame) {
+                warn!("[mic] channel send failed: {e}");
             }
         }
     }
