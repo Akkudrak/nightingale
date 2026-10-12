@@ -37,6 +37,7 @@ pub(crate) struct MicrophoneInfo {
     pub id: String,
     pub name: String,
     pub host: String,
+    pub channel_count: u16,
 }
 
 /// Mono PCM frame streamed from Rust to JS. JS owns all DSP (pitch, reactive
@@ -122,14 +123,21 @@ pub(crate) fn list_microphones(
             let host = host_name.to_string();
             if seen.insert((host.clone(), name.clone())) {
                 let id = format!("{host_name}:{raw_id}");
+                let channel_count = config.channels();
                 if combine_channels.unwrap_or(true) || config.channels() <= 1 {
-                    out.push(MicrophoneInfo { id, name, host });
+                    out.push(MicrophoneInfo {
+                        id,
+                        name,
+                        host,
+                        channel_count,
+                    });
                 } else {
                     for channel in 1..=config.channels() {
                         out.push(MicrophoneInfo {
                             id: format!("{id}#channel={channel}"),
                             name: format!("{name} (Channel {channel})"),
                             host: host.clone(),
+                            channel_count,
                         });
                     }
                 }

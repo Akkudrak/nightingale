@@ -162,6 +162,7 @@ const listDevices = async (_combineChannels: boolean): Promise<MicrophoneInfo[]>
       id: device.deviceId || name,
       name,
       host: 'Browser',
+      channel_count: 1,
     };
   });
 };

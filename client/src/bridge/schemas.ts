@@ -82,6 +82,7 @@ export const appConfigSchema: z.ZodType<AppConfig> = z.object({
   mic_monitor_gain: nullableNumber,
   mic_latency_compensation_sec: nullableNumber,
   combine_multi_channel: nullableBoolean,
+  multiplayer_combine_multi_channel: nullableBoolean,
   preferred_mic: nullableString,
   whisper_model: nullableString,
   beam_size: nullableNumber,

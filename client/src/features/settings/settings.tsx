@@ -126,6 +126,7 @@ export const SettingsPage = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<SettingsTab>('general');
   const [backgroundDialogOpen, setBackgroundDialogOpen] = useState(false);
+  const [hasMultiChannelInput, setHasMultiChannelInput] = useState(false);
   const general = generalSettings(config);
   const playback = playbackSettings(config);
   const analysis = analysisSettings(config);
@@ -229,6 +230,7 @@ export const SettingsPage = () => {
     enabled: !backgroundDialogOpen,
     tab,
     isParakeet,
+    hasMultiChannelInput,
     micMonitorGain,
     micLatencySec,
     masterVolume,
@@ -308,6 +310,7 @@ export const SettingsPage = () => {
                 monitorGain={micMonitorGain}
                 latencySec={micLatencySec}
                 getFocusClassName={getFocusClassName}
+                onMultiChannelAvailabilityChange={setHasMultiChannelInput}
                 onMonitorGainChange={updateMicMonitorGain}
                 onLatencyChange={updateMicLatency}
               />

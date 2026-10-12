@@ -9,6 +9,7 @@ export type MicDevice = {
   deviceId: string;
   label: string;
   name: string;
+  channelCount: number;
 };
 
 const MIC_DEVICE_CACHE_MS = 60_000;
@@ -36,10 +37,11 @@ async function listMicDevices(
       seen.add(key);
       return true;
     })
-    .map(({ id, name, host }: MicrophoneInfo) => ({
+    .map(({ id, name, host, channel_count }: MicrophoneInfo) => ({
       deviceId: id,
       label: host === 'Browser' ? name : `${host}: ${name}`,
       name,
+      channelCount: channel_count,
     }));
 }
 
