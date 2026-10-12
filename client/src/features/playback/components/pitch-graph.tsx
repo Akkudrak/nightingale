@@ -5,6 +5,7 @@ import { PITCH_BUFFER_SIZE } from '@/features/playback/lib/pitch/constants';
 import type { PitchSeries } from '@/features/playback/lib/pitch/state';
 import { freqToSemitone, snapToRefOctave } from '@/features/playback/lib/pitch/state';
 import { usePlaybackMicState } from '@/features/playback/providers';
+import { playerColorOption } from '@/shared/player-colors';
 import type { Rgb } from '@/types/Rgb';
 
 type CanvasLayout = {
@@ -39,12 +40,6 @@ const REF_LINE_COLOR: Rgb = { r: 0.5, g: 0.7, b: 1.0 };
 const REF_LINE_ALPHA = 0.55;
 
 const USER_BASE_COLOR: Rgb = { r: 0.85, g: 0.85, b: 1.0 };
-const PLAYER_COLORS: Rgb[] = [
-  { r: 0.98, g: 0.44, b: 0.52 },
-  { r: 0.91, g: 0.36, b: 0.78 },
-  { r: 0.98, g: 0.66, b: 0.15 },
-  { r: 0.2, g: 0.83, b: 0.6 },
-];
 const USER_ALPHA_WITHOUT_REF = 0.55;
 const USER_ALPHA_MIN_WITH_REF = 0.35;
 const USER_ALPHA_MAX_WITH_REF = 1.0;
@@ -353,7 +348,7 @@ export function PitchGraph({ series, position = 'top', scale = 1 }: PitchGraphPr
     setupCanvas(canvas, ctx, layout);
     if (multiplayer) {
       let referenceDrawn = false;
-      players.forEach((player, index) => {
+      players.forEach((player) => {
         if (!player.micReady) {
           return;
         }
@@ -361,7 +356,7 @@ export function PitchGraph({ series, position = 'top', scale = 1 }: PitchGraphPr
           ctx,
           layout,
           series: player.series,
-          baseColor: PLAYER_COLORS[index],
+          baseColor: playerColorOption(player.color).rgb,
           includeReference: !referenceDrawn,
         });
         referenceDrawn = true;

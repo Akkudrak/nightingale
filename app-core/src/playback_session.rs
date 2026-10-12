@@ -6,6 +6,17 @@ use ts_rs::TS;
 
 use crate::Song;
 
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, TS, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+#[ts(export)]
+pub enum PlayerColor {
+    #[default]
+    Rose,
+    Fuchsia,
+    Amber,
+    Emerald,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export)]
@@ -13,6 +24,8 @@ pub struct PlaybackPlayer {
     pub id: String,
     pub profile: Option<String>,
     pub microphone_id: String,
+    #[serde(default)]
+    pub color: PlayerColor,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

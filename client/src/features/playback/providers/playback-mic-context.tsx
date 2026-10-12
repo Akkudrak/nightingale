@@ -21,6 +21,7 @@ import {
 import { usePlaybackConfigPersist } from '@/features/playback/hooks/use-playback-config-persist';
 import { DEFAULT_MIC_LATENCY_COMPENSATION_SEC } from '@/features/playback/lib/pitch/constants';
 import type { PitchSeries } from '@/features/playback/lib/pitch/state';
+import { defaultPlayerColor, type PlayerColor } from '@/shared/player-colors';
 import type { AppConfig } from '@/types/AppConfig';
 
 import {
@@ -32,6 +33,7 @@ export type PlaybackPlayerMicState = {
   id: string;
   profile: string | null;
   microphoneId: string | null;
+  color: PlayerColor;
   micName: string;
   pitchScore: number | null;
   rawScore: number;
@@ -79,6 +81,7 @@ type MicPlayerConfig = {
   id: string;
   profile: string | null;
   microphoneId: string | null;
+  color: PlayerColor;
 };
 
 type InternalPlayerMicState = PlaybackPlayerMicState & { present: boolean };
@@ -111,13 +114,22 @@ function playerConfigs(
   selectedMicId: string | null,
 ): MicPlayerConfig[] {
   if (players.length === 0) {
-    return [{ present: true, id: 'solo', profile: null, microphoneId: selectedMicId }];
+    return [
+      {
+        present: true,
+        id: 'solo',
+        profile: null,
+        microphoneId: selectedMicId,
+        color: defaultPlayerColor(0),
+      },
+    ];
   }
   return players.map((player) => ({
     present: true,
     id: player.id,
     profile: player.profile,
     microphoneId: player.microphoneId,
+    color: player.color,
   }));
 }
 
@@ -131,6 +143,7 @@ function playerAt(players: readonly MicPlayerConfig[], index: number): MicPlayer
     id: `inactive-${index + 1}`,
     profile: null,
     microphoneId: null,
+    color: defaultPlayerColor(index),
   };
 }
 
@@ -203,6 +216,7 @@ function namePlayer(player: InternalPlayerMicState, devices: readonly MicDevice[
     id: player.id,
     profile: player.profile,
     microphoneId: player.microphoneId,
+    color: player.color,
     micName: device?.label ?? player.microphoneId ?? 'Default',
     pitchScore: player.pitchScore,
     rawScore: player.rawScore,
