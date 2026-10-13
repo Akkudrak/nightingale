@@ -23,6 +23,17 @@ export const minimizeWindow = async (): Promise<void> => {
   return invoke<void>('minimize_window');
 };
 
+export const updateWindowState = async (
+  maximized: boolean,
+  width: number,
+  height: number,
+): Promise<void> => {
+  if (!isTauri) {
+    return;
+  }
+  return invoke<void>('update_window_state', { maximized, width, height });
+};
+
 export const closePlaybackWindow = async (): Promise<void> => {
   if (isTauri) {
     await getCurrentWindow().close();

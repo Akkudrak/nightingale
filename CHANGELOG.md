@@ -34,6 +34,7 @@ below.
 
 ### Fixes
 
+- Closing the main desktop window now exits after its native webview is destroyed, preventing a lingering event loop and WebView2 window-class cleanup errors.
 - Fixed the Docker image's frontend build by matching the Node 22 and pnpm 11 versions that `client/package.json` requires.
 - Whisper now falls back to CPU when CTranslate2 has no CUDA support (for example the CPU-only aarch64 wheels), instead of failing analysis.
 - Playback windows now restore their saved size and maximized state without delaying their appearance.

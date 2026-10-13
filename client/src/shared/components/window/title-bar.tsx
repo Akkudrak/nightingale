@@ -6,7 +6,12 @@ import { loadConfig, saveConfig } from '@/bridge/config';
 import { isFullScreen as tauriIsFullScreen, setFullScreen } from '@/bridge/fullScreen';
 import { isSessionPlayback } from '@/bridge/playback-session';
 import { isTauri } from '@/bridge/runtime';
-import { minimizeWindow, triggerFrontendReady, windowImmersive } from '@/bridge/window';
+import {
+  minimizeWindow,
+  triggerFrontendReady,
+  updateWindowState,
+  windowImmersive,
+} from '@/bridge/window';
 
 export function TauriAppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -56,7 +61,13 @@ function TitleBar() {
     const win = getCurrentWindow();
 
     const sync = async () => {
-      setFullscreen(await windowImmersive());
+      const [immersive, maximized, size] = await Promise.all([
+        windowImmersive(),
+        win.isMaximized(),
+        win.innerSize(),
+      ]);
+      setFullscreen(immersive);
+      await updateWindowState(maximized, size.width, size.height);
     };
 
     void sync();
