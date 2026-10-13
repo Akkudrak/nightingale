@@ -215,18 +215,17 @@ def tokenize_japanese_with_reading(text: str) -> list[tuple[str, str]]:
     """
     if not text:
         return []
-    kana_spans = _compound_spans(text)
-    frags = _apply_reading_spans(list(text), kana_spans) if kana_spans else None
+    frags = _japanese_char_kana(text)
     out: list[tuple[str, str]] = []
     for start, t in _tag_japanese(text):
         surface = getattr(t, "surface", None) or str(t)
-        end = start + len(surface)
-        if start >= 0:
-            surface = text[start:end]
-        if frags is not None and start >= 0 and any(s < end and start < e for s, e, _ in kana_spans):
-            kana = "".join(frags[start:end])
-        else:
-            kana = _morpheme_kana(t)
+        if not surface:
+            continue
+        if start < 0:
+            out.append((surface, ""))
+            continue
+        surface = text[start:start + len(surface)]
+        kana = "".join(frags[start:start + len(surface)])
         if not kana:
             out.append((surface, ""))
             continue
@@ -242,20 +241,15 @@ def tokenize_japanese_with_reading(text: str) -> list[tuple[str, str]]:
     return out
 
 
-# unidic-lite readings that are valid but almost never what lyrics mean
-# (formal/rare defaults, or kana spelled as pronounced like 言う=ユウ).
-_JA_READING_OVERRIDES = {
-    "私": "わたし",
-    "明日": "あした",
-    "日本": "にほん",
-    "言う": "いう",
-    "闇夜": "やみよ",
-}
-# Words unidic-lite splits into several morphemes and so misreads (三日+月 =
-# みっか+つき). Readings are per character so any token split stays correct.
+# Fixed words whose reading is unambiguous but that unidic-lite misreads: it
+# splits them into several morphemes (三日+月 = みっか+つき), or lacks them
+# (literary 駆ける, tagged as 駆 (かける) + く). Readings are per character so
+# any token split stays correct. Broad overrides are deliberately absent: the
+# reading of 私, 明日, 日本, 言う, 金の... depends on the song, so the dictionary
+# reading stands unless the lyrics carry a note.
 _JA_COMPOUND_READINGS = {
     "三日月": ("み", "か", "づき"),
-    # Literary 駆ける, missing from unidic-lite: tagged as 駆 (かける) + く.
+    "闇夜": ("やみ", "よ"),
     "駆く": ("か", "く"),
 }
 # unidic-lite always reads 何 as ナン; before these particles it is なに.
@@ -328,8 +322,8 @@ def _japanese_char_kana(text: str) -> list[str]:
 
         prev = morphemes[i - 1].surface if i > 0 else ""
         nxt = morphemes[i + 1].surface if i + 1 < len(morphemes) else ""
-        kana = _JA_READING_OVERRIDES.get(surface)
-        if kana is None and surface == "何" and nxt in _JA_NANI_FOLLOWERS:
+        kana = None
+        if surface == "何" and nxt in _JA_NANI_FOLLOWERS:
             kana = "なに"
         if kana is None and surface == "君" and prev:
             # After latin ("you 君") UniDic parses 君 as the name suffix くん.
@@ -339,9 +333,6 @@ def _japanese_char_kana(text: str) -> list[str]:
             # Colour after a kana word (ハッカ色, オレンジ色) is いろ, not しょく.
             if not any(_is_kanji(ch) for ch in prev):
                 kana = "いろ"
-        if kana is None and surface == "金" and nxt == "の" and prev != "お":
-            # UniDic reads 金の as money (かね); in lyrics it is gold (金の塔).
-            kana = "きん"
         if kana is None:
             kana = _katakana_to_hiragana(_morpheme_kana(m))
         if not kana:

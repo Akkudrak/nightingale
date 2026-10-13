@@ -411,10 +411,10 @@ def _align_and_build_qwen(raw_segments: list[dict], audio, language: str, pre_al
         return None
 
     all_words = remove_hallucinated_words(all_words)
-    if cjk.is_supported_lang(language):
-        cjk.attach_reading(all_words, language)
-
     segments = _build_segments(all_words, is_cjk=cjk.is_cjk(language))
+    if cjk.is_supported_lang(language):
+        for seg in segments:
+            cjk.attach_reading(seg["words"], language, line=seg["text"])
     progress(90, f"Transcription complete: {len(segments)} segments, lang={language}")
     if segments:
         print(f"[nightingale:LOG] First segment: '{segments[0]['text'][:100]}'", flush=True)
@@ -491,7 +491,7 @@ def _retokenize_cjk(raw_segments: list[dict], aligned_segments: list[dict], lang
             if "score" in e and e["score"] is not None:
                 e["score"] = round(e["score"], 3)
 
-        cjk.attach_reading(valid, language)
+        cjk.attach_reading(valid, language, line=original)
 
         total_chars += len(char_entries)
         total_tokens += len(valid)
