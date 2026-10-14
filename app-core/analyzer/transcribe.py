@@ -381,8 +381,9 @@ def _align_and_build_qwen(raw_segments: list[dict], audio, language: str, pre_al
 
     Qwen tokenizes the display text itself (dropping punctuation) and returns a
     timed unit per token, so this skips the wav2vec2 word-recovery /
-    interpolation / CJK-retokenize steps: it just flattens the timed tokens,
-    attaches romanized readings for CJK/Korean, and groups into display segments.
+    interpolation / CJK-retokenize steps: it attaches romanized readings for
+    CJK/Korean within each original segment, flattens the timed tokens, and
+    groups them into display segments.
     Returns ``None`` on any qwen failure so the caller falls back to wav2vec2.
     """
     import qwen_align
@@ -401,20 +402,23 @@ def _align_and_build_qwen(raw_segments: list[dict], audio, language: str, pre_al
 
     all_words: list[dict] = []
     for seg in result.get("segments", []):
+        seg_words: list[dict] = []
         for w in seg.get("words", []):
             word_text = w.get("word", "").strip()
             if not word_text or w.get("start") is None or w.get("end") is None:
                 continue
-            all_words.append({"word": word_text, "start": w["start"], "end": w["end"]})
+            seg_words.append({"word": word_text, "start": w["start"], "end": w["end"]})
+        # Readings come from the original segment's own text, before the
+        # timing-based regrouping below can merge or split source lines.
+        if seg_words and cjk.is_supported_lang(language):
+            cjk.attach_reading(seg_words, language, line=seg.get("text") or None)
+        all_words.extend(seg_words)
 
     if not all_words:
         return None
 
     all_words = remove_hallucinated_words(all_words)
     segments = _build_segments(all_words, is_cjk=cjk.is_cjk(language))
-    if cjk.is_supported_lang(language):
-        for seg in segments:
-            cjk.attach_reading(seg["words"], language, line=seg["text"])
     progress(90, f"Transcription complete: {len(segments)} segments, lang={language}")
     if segments:
         print(f"[nightingale:LOG] First segment: '{segments[0]['text'][:100]}'", flush=True)

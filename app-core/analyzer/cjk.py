@@ -241,19 +241,18 @@ def tokenize_japanese_with_reading(text: str) -> list[tuple[str, str]]:
     return out
 
 
-# Fixed words whose reading is unambiguous but that unidic-lite misreads: it
-# splits them into several morphemes (三日+月 = みっか+つき), or lacks them
-# (literary 駆ける, tagged as 駆 (かける) + く). Readings are per character so
-# any token split stays correct. Broad overrides are deliberately absent: the
-# reading of 私, 明日, 日本, 言う, 金の... depends on the song, so the dictionary
-# reading stands unless the lyrics carry a note.
+# Fixed words with a single reading that unidic-lite misreads: it splits them
+# into several morphemes (三日+月 = みっか+つき), or lacks them (literary 駆ける,
+# tagged as 駆 (かける) + く). Readings are per character so any token split
+# stays correct. Words with more than one valid reading (私, 明日, 闇夜, 金...)
+# are deliberately absent: the dictionary reading stands.
 _JA_COMPOUND_READINGS = {
     "三日月": ("み", "か", "づき"),
-    "闇夜": ("やみ", "よ"),
     "駆く": ("か", "く"),
 }
 # unidic-lite always reads 何 as ナン; before these particles it is なに.
-_JA_NANI_FOLLOWERS = ("を", "が", "か", "も", "に", "より")
+# (何か is left out: both なにか and なんか are common.)
+_JA_NANI_FOLLOWERS = ("を", "が", "も", "に", "より")
 # Topic/direction particles romanize by pronunciation, not spelling.
 _JA_PARTICLE_READINGS = {"は": "わ", "へ": "え"}
 _JA_SOKUON = ("っ", "ッ")
@@ -325,10 +324,6 @@ def _japanese_char_kana(text: str) -> list[str]:
         kana = None
         if surface == "何" and nxt in _JA_NANI_FOLLOWERS:
             kana = "なに"
-        if kana is None and surface == "君" and prev:
-            # After latin ("you 君") UniDic parses 君 as the name suffix くん.
-            if not any(_is_kana(ch) or _is_kanji(ch) for ch in prev):
-                kana = "きみ"
         if kana is None and surface == "色" and prev and getattr(m.feature, "pos1", None) == "接尾辞":
             # Colour after a kana word (ハッカ色, オレンジ色) is いろ, not しょく.
             if not any(_is_kanji(ch) for ch in prev):

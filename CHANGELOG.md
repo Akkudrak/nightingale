@@ -38,7 +38,7 @@ below.
 - Song search is now case- and accent-insensitive for Unicode metadata and paths.
 - Stems, source videos, and background videos now play when the songs or videos cache has been moved to a separate folder (for example a network share): the desktop and self-hosted media servers only allowed files under the data folder and library folder, so a relocated cache failed with "Failed to fetch instrumental: 404".
 - Analysis status sorting now orders ready songs by the transcript source shown in their status badge.
-- Japanese romaji now reads kanji in sentence context (彷徨って → samayotte, 君 → kimi instead of hōkō / kun), romanizes the particles は / へ as wa / e, handles small っ across word boundaries, treats half-width spaces as word breaks (街 家 → machi ie, not machi ka), and fixes fixed words the dictionary splits or lacks (三日月, 闇夜, 駆く). Readings for display and alignment come from the same contextual kana.
+- Japanese romaji now reads kanji in sentence context (彷徨って → samayotte, 君 → kimi instead of hōkō / kun), romanizes the particles は / へ as wa / e, handles small っ across word boundaries, treats half-width spaces as word breaks (街 家 → machi ie, not machi ka), and fixes fixed words the dictionary splits or lacks (三日月, 駆く). Readings for display and alignment come from the same contextual kana.
 
 ## [1.2.0] - 2026-09-02
 
