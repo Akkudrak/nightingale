@@ -6,6 +6,7 @@ import { cn } from '@/shared/utils/cn';
 import { NO_FOCUS_RING_CLASS, RING_CLASS } from './parts';
 
 const TEXTAREA_ROWS = 16;
+const CJK_PATTERN = /[\u3040-\u30ff\u3400-\u9fff]/;
 
 const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
   if (event.key === 'Escape') {
@@ -65,6 +66,18 @@ export const LyricsEditor = ({
           and {'<mm:ss.xx>'} before a word for word timing
         </p>
       )}
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        {CJK_PATTERN.test(text) ? (
+          <>
+            Fix a reading with {'{漢字|romaji}'} or {'{漢字|かな}'}, e.g. {'{君|kimi}'} or{' '}
+            {'{彷徨|さまよ}って'}
+          </>
+        ) : (
+          <>
+            Add a note above a word with {'{word|note}'}, e.g. {'{colour|color}'}
+          </>
+        )}
+      </p>
     </>
   );
 };
