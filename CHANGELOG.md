@@ -32,6 +32,7 @@ below.
 - Migrated library persistence from handwritten runtime SQL to Diesel's typed SQLite query builder without changing existing databases or library behavior.
 - Playback queue songs can now be reordered by dragging or with Alt+Arrow keys.
 - The playback screen now shows the song's cover art, title, and artist on a loading screen while audio is still downloading/decoding, instead of a blank/shader background.
+- The lyrics editor shows the LRC timing syntax (`[mm:ss.xx]` per line, `<mm:ss.xx>` per word) under the text box.
 
 ### Fixes
 
