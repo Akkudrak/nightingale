@@ -7,6 +7,7 @@ import { useDialogNav } from '@/features/menu/hooks/use-dialog-nav';
 import { useMicDevicesQuery, type MicDevice } from '@/features/microphone/queries/use-mic-devices';
 import { useProfiles } from '@/features/profiles/queries/use-profiles';
 import { Button } from '@/shared/components/ui/button';
+import { Checkbox } from '@/shared/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +28,9 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select';
 import { useConfig } from '@/shared/config/use-config';
+import { useConfigMutation } from '@/shared/config/use-config-mutation';
 import { cn } from '@/shared/utils/cn';
+import type { AppConfig } from '@/types/AppConfig';
 
 const MAX_PLAYERS = 4;
 const RING = 'ring-2 ring-primary';
@@ -155,6 +158,18 @@ const setupDescription = (queuePlayback: boolean | undefined): string =>
 
 const setupSubmitLabel = (label: string | undefined): string => label ?? 'Start multiplayer';
 
+const combineMultiplayerChannels = (config: AppConfig | undefined): boolean =>
+  config?.multiplayer_combine_multi_channel ?? true;
+
+const capabilityDevices = (
+  combineChannels: boolean,
+  microphones: readonly MicDevice[],
+  combinedMicrophones: readonly MicDevice[],
+): readonly MicDevice[] => (combineChannels ? microphones : combinedMicrophones);
+
+const shouldLoadCombinedCapabilities = (open: boolean, combineChannels: boolean): boolean =>
+  open && !combineChannels;
+
 function setupError(input: SetupErrorInput): string | null {
   if (input.microphonesError) {
     return 'Could not load microphones. Check microphone permission and try again.';
@@ -216,7 +231,13 @@ function playerSetupStatus(
   };
 }
 
-const setupStops = (players: readonly PlaybackPlayer[], canAdd: boolean, canStart: boolean) => [
+const setupStops = (
+  players: readonly PlaybackPlayer[],
+  canAdd: boolean,
+  canStart: boolean,
+  hasMultiChannelInput: boolean,
+) => [
+  ...(hasMultiChannelInput ? [1] : []),
   ...players.map((_, index) => (index >= 2 ? 3 : 2)),
   ...(canAdd ? [1] : []),
   canStart ? 2 : 1,
@@ -228,6 +249,7 @@ type PlayerRowsProps = {
   microphones: readonly MicDevice[];
   updatePlayer: (id: string, patch: Partial<PlaybackPlayer>) => void;
   removePlayer: (id: string) => void;
+  segmentOffset: number;
   navClass: (segment: number, slot?: number) => string;
   focusSegment: (segment: number, slot?: number) => void;
 };
@@ -261,11 +283,13 @@ function PlayerRows({
   microphones,
   updatePlayer,
   removePlayer,
+  segmentOffset,
   navClass,
   focusSegment,
 }: PlayerRowsProps) {
   return players.map((player, index) => {
     const slots = playerNavSlots(index);
+    const segment = index + segmentOffset;
     return (
       <div
         key={player.id}
@@ -282,9 +306,9 @@ function PlayerRows({
               type="button"
               variant="ghost"
               size="icon-sm"
-              className={navClass(index, 0)}
-              onFocus={() => focusSegment(index, 0)}
-              onMouseEnter={() => focusSegment(index, 0)}
+              className={navClass(segment, 0)}
+              onFocus={() => focusSegment(segment, 0)}
+              onMouseEnter={() => focusSegment(segment, 0)}
               onClick={() => removePlayer(player.id)}
               aria-label={`Remove player ${index + 1}`}
             >
@@ -305,10 +329,10 @@ function PlayerRows({
               id={`${player.id}-profile`}
               className={cn(
                 'w-full min-w-0 overflow-hidden [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:truncate',
-                navClass(index, slots.profile),
+                navClass(segment, slots.profile),
               )}
-              onFocus={() => focusSegment(index, slots.profile)}
-              onMouseEnter={() => focusSegment(index, slots.profile)}
+              onFocus={() => focusSegment(segment, slots.profile)}
+              onMouseEnter={() => focusSegment(segment, slots.profile)}
             >
               <SelectValue />
             </SelectTrigger>
@@ -338,10 +362,10 @@ function PlayerRows({
               id={`${player.id}-microphone`}
               className={cn(
                 'w-full min-w-0 overflow-hidden [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:truncate',
-                navClass(index, slots.microphone),
+                navClass(segment, slots.microphone),
               )}
-              onFocus={() => focusSegment(index, slots.microphone)}
-              onMouseEnter={() => focusSegment(index, slots.microphone)}
+              onFocus={() => focusSegment(segment, slots.microphone)}
+              onMouseEnter={() => focusSegment(segment, slots.microphone)}
             >
               <SelectValue placeholder="Select microphone" />
             </SelectTrigger>
@@ -362,6 +386,39 @@ function PlayerRows({
   });
 }
 
+type CombineChannelsFieldProps = {
+  available: boolean;
+  checked: boolean;
+  className: string;
+  onFocus: () => void;
+  onCheckedChange: (checked: boolean) => void;
+};
+
+function CombineChannelsField({
+  available,
+  checked,
+  className,
+  onFocus,
+  onCheckedChange,
+}: CombineChannelsFieldProps) {
+  if (!available) {
+    return null;
+  }
+
+  return (
+    <Label className="gap-1.5 text-sm font-normal text-muted-foreground">
+      <Checkbox
+        checked={checked}
+        className={className}
+        onFocus={onFocus}
+        onMouseEnter={onFocus}
+        onCheckedChange={(value) => onCheckedChange(value === true)}
+      />
+      Combine multi-channel
+    </Label>
+  );
+}
+
 export function MultiplayerSetupDialog({
   open,
   onOpenChange,
@@ -371,7 +428,19 @@ export function MultiplayerSetupDialog({
 }: MultiplayerSetupDialogProps) {
   const { data: profileStore, isLoading: profilesLoading } = useProfiles();
   const { data: config, isLoading: configLoading } = useConfig();
-  const microphones = useMicDevicesQuery(undefined, open);
+  const { mutate: saveConfig } = useConfigMutation();
+  const combineChannels = combineMultiplayerChannels(config);
+  const microphones = useMicDevicesQuery(undefined, open, combineChannels);
+  const capabilityQuery = useMicDevicesQuery(
+    undefined,
+    shouldLoadCombinedCapabilities(open, combineChannels),
+    true,
+  );
+  const hasMultiChannelInput = capabilityDevices(
+    combineChannels,
+    microphones.data,
+    capabilityQuery.data,
+  ).some((device) => device.channelCount > 1);
   const [players, setPlayers] = useState<PlaybackPlayer[]>([]);
   const initialized = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -412,10 +481,12 @@ export function MultiplayerSetupDialog({
       [loading, microphones.data, players],
     );
   const canAddPlayer = players.length < MAX_PLAYERS;
-  const footerSegment = players.length + (canAddPlayer ? 1 : 0);
+  const playerSegmentOffset = Number(hasMultiChannelInput);
+  const addPlayerSegment = playerSegmentOffset + players.length;
+  const footerSegment = addPlayerSegment + (canAddPlayer ? 1 : 0);
   const stops = useMemo(
-    () => setupStops(players, canAddPlayer, canStart),
-    [canAddPlayer, canStart, players],
+    () => setupStops(players, canAddPlayer, canStart, hasMultiChannelInput),
+    [canAddPlayer, canStart, hasMultiChannelInput, players],
   );
   const closeDialog = () => onOpenChange(false);
   const { isFocused, focusSegment } = useDialogNav({
@@ -488,6 +559,16 @@ export function MultiplayerSetupDialog({
           <DialogDescription>{setupDescription(queuePlayback)}</DialogDescription>
         </DialogHeader>
 
+        <CombineChannelsField
+          available={hasMultiChannelInput}
+          checked={combineChannels}
+          className={navClass(0)}
+          onFocus={() => focusSegment(0)}
+          onCheckedChange={(multiplayer_combine_multi_channel) =>
+            saveConfig({ multiplayer_combine_multi_channel })
+          }
+        />
+
         <div>
           <div className="hidden grid-cols-[7rem_minmax(0,0.8fr)_minmax(0,1.2fr)] gap-3 border-b px-1 pb-2 text-xs font-medium text-muted-foreground sm:grid">
             <span>Player</span>
@@ -501,6 +582,7 @@ export function MultiplayerSetupDialog({
               microphones={microphones.data}
               updatePlayer={updatePlayer}
               removePlayer={removePlayer}
+              segmentOffset={playerSegmentOffset}
               navClass={navClass}
               focusSegment={focusSegment}
             />
@@ -510,10 +592,10 @@ export function MultiplayerSetupDialog({
               type="button"
               variant="outline"
               size="sm"
-              className={canAddPlayer ? navClass(players.length) : undefined}
+              className={canAddPlayer ? navClass(addPlayerSegment) : undefined}
               disabled={!canAddPlayer}
-              onFocus={() => focusSegment(players.length)}
-              onMouseEnter={() => focusSegment(players.length)}
+              onFocus={() => focusSegment(addPlayerSegment)}
+              onMouseEnter={() => focusSegment(addPlayerSegment)}
               onClick={addPlayer}
             >
               <PlusIcon /> Add player

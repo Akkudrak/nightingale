@@ -48,6 +48,7 @@ const generalSettings = (config: AppConfig | undefined) => {
     return {
       fullscreen: undefined,
       preferredMic: null,
+      combineMultiChannel: true,
       micMonitorGain: DEFAULTS.mic_monitor_gain,
       micLatency: DEFAULTS.mic_latency_compensation_sec,
     };
@@ -56,6 +57,7 @@ const generalSettings = (config: AppConfig | undefined) => {
   return {
     fullscreen: config.fullscreen,
     preferredMic: config.preferred_mic,
+    combineMultiChannel: config.combine_multi_channel ?? true,
     micMonitorGain: config.mic_monitor_gain ?? DEFAULTS.mic_monitor_gain,
     micLatency: config.mic_latency_compensation_sec ?? DEFAULTS.mic_latency_compensation_sec,
   };
@@ -124,6 +126,7 @@ export const SettingsPage = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<SettingsTab>('general');
   const [backgroundDialogOpen, setBackgroundDialogOpen] = useState(false);
+  const [hasMultiChannelInput, setHasMultiChannelInput] = useState(false);
   const general = generalSettings(config);
   const playback = playbackSettings(config);
   const analysis = analysisSettings(config);
@@ -227,6 +230,7 @@ export const SettingsPage = () => {
     enabled: !backgroundDialogOpen,
     tab,
     isParakeet,
+    hasMultiChannelInput,
     micMonitorGain,
     micLatencySec,
     masterVolume,
@@ -302,9 +306,11 @@ export const SettingsPage = () => {
 
               <MicrophoneSettings
                 savedMicId={general.preferredMic}
+                combineMultiChannel={general.combineMultiChannel}
                 monitorGain={micMonitorGain}
                 latencySec={micLatencySec}
                 getFocusClassName={getFocusClassName}
+                onMultiChannelAvailabilityChange={setHasMultiChannelInput}
                 onMonitorGainChange={updateMicMonitorGain}
                 onLatencyChange={updateMicLatency}
               />

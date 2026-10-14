@@ -16,6 +16,7 @@ below.
 ### Features
 
 - Desktop and Playback windows now remember their size and whether they were maximized between launches.
+- Added independent **Combine multi-channel** controls for solo and multiplayer scoring, shown when a multi-channel desktop input is available.
 - Added custom playback backgrounds from uploaded files or HTTPS links, automatically recognizing supported static image, Nightingale GLSL shader, and silent looping video extensions.
 - Added a master volume control to Playback settings.
 - Added local multiplayer playback for two to four singers, with per-player microphone and profile selection, editable queue lineups, keyboard and gamepad navigation, live scores, and ranked results.
