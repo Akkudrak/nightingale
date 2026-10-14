@@ -3,8 +3,10 @@ import { useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { openUrl } from '@/bridge/opener';
 import { useLyricsEditor } from '@/features/lyrics/hooks/use-lyrics-editor';
+import { TIMING_CHOICES, type TimingChoice } from '@/features/lyrics/lib/timing-choice';
 import { useSaveLyricsMutation } from '@/features/lyrics/mutations/use-save-lyrics-mutation';
 import {
+  useAlignLrcMutation,
   useApplyTimedLyricsMutation,
   useProvideLrcMutation,
 } from '@/features/lyrics/mutations/use-timed-lyrics-mutation';
@@ -29,7 +31,7 @@ import type { Song } from '@/types/Song';
 
 import { CarouselNav } from './carousel-nav';
 import { EditLyricsFooter } from './edit-lyrics-footer';
-import { LrcOptions, type TimingChoice } from './lrc-options';
+import { LrcOptions } from './lrc-options';
 import { LrclibMatches } from './lrclib-matches';
 import { LyricsEditor } from './lyrics-editor';
 import { ringFor } from './parts';
@@ -203,7 +205,7 @@ function navLayout({
   } else {
     segments.push({ key: 'editor', width: 1 });
     if (timingNav) {
-      segments.push({ key: 'timing', width: 2 });
+      segments.push({ key: 'timing', width: TIMING_CHOICES.length });
     }
     if (audioNav) {
       segments.push({ key: 'audio', width: 2 });
@@ -343,6 +345,7 @@ export const EditLyricsDialog = () => {
   const provideLrcMutation = useProvideLrcMutation();
   const applyTimedMutation = useApplyTimedLyricsMutation();
   const saveLyricsMutation = useSaveLyricsMutation();
+  const alignLrcMutation = useAlignLrcMutation();
 
   const [activeTab, setActiveTab] = useState<EditLyricsTab>('edit');
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -371,6 +374,7 @@ export const EditLyricsDialog = () => {
     provideLrcMutation.isLoading,
     applyTimedMutation.isLoading,
     saveLyricsMutation.isLoading,
+    alignLrcMutation.isLoading,
   ].some(Boolean);
   const canSave = canSaveLyrics(
     saving,
@@ -410,6 +414,11 @@ export const EditLyricsDialog = () => {
           { onSuccess: close },
         );
       }
+      return;
+    }
+
+    if (hasLrc && timingChoice === 'anchored') {
+      alignLrcMutation.mutate({ hash, lrcText: editor.text, title }, { onSuccess: close });
       return;
     }
 
@@ -479,7 +488,7 @@ export const EditLyricsDialog = () => {
 
       const handleOption = (): boolean => {
         if (layout.timingSegment !== null && segment === layout.timingSegment) {
-          setTimingChoice(slot === 0 ? 'provided' : 'align');
+          setTimingChoice(TIMING_CHOICES[slot] ?? 'align');
           return true;
         }
         if (layout.audioSegment !== null && segment === layout.audioSegment) {
