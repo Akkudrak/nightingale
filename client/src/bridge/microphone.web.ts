@@ -54,6 +54,7 @@ type ActiveCapture = {
 };
 
 const activeCaptures = new Map<string, ActiveCapture>();
+let microphoneAccess: Promise<void> | null = null;
 let workletUrl: string | null = null;
 let liveMonitorGain = DEFAULT_MONITOR_GAIN;
 let captureOpChain: Promise<unknown> = Promise.resolve();
@@ -142,6 +143,21 @@ const browserMediaDevices = (): MediaDevices | undefined => {
   return navigator.mediaDevices;
 };
 
+const ensureMicrophoneAccess = async (mediaDevices: MediaDevices): Promise<void> => {
+  microphoneAccess ??= mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+    for (const track of stream.getTracks()) {
+      track.stop();
+    }
+    return undefined;
+  });
+  try {
+    await microphoneAccess;
+  } catch (error) {
+    microphoneAccess = null;
+    throw error;
+  }
+};
+
 const listDevices = async (_combineChannels: boolean): Promise<MicrophoneInfo[]> => {
   const mediaDevices = browserMediaDevices();
   if (!mediaDevices) {
@@ -150,11 +166,13 @@ const listDevices = async (_combineChannels: boolean): Promise<MicrophoneInfo[]>
     );
   }
 
+  await ensureMicrophoneAccess(mediaDevices);
   const devices = await mediaDevices.enumerateDevices();
-  const inputs = devices.filter(
-    (device) =>
-      device.kind === 'audioinput' && device.deviceId !== '' && device.deviceId !== 'default',
+  const audioInputs = devices.filter(
+    (device) => device.kind === 'audioinput' && device.deviceId !== '',
   );
+  const namedInputs = audioInputs.filter((device) => device.deviceId !== 'default');
+  const inputs = namedInputs.length > 0 ? namedInputs : audioInputs;
 
   return inputs.map((device, index) => {
     const name = device.label.trim() || `Microphone ${index + 1}`;

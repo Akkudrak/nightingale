@@ -312,7 +312,12 @@ export function PlaybackMicProvider({ config, players, children }: PlaybackMicPr
     .filter((player) => player.present)
     .map((player) => namePlayer(player, micDevices));
   const primary = namedPlayers[0];
-  const reactiveRef = useMicReactive(primary.id, primary.micReady);
+  const reactiveRef = useMicReactive([
+    { captureId: slotOne.id, enabled: slotOne.micReady },
+    { captureId: slotTwo.id, enabled: slotTwo.micReady },
+    { captureId: slotThree.id, enabled: slotThree.micReady },
+    { captureId: slotFour.id, enabled: slotFour.micReady },
+  ]);
 
   const shownErrors = useRef(new Set<string>());
   useEffect(() => {

@@ -13,15 +13,17 @@ below.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-15
+
 ### Features
 
-- Multiplayer setup now lets each player choose a color used in the playback HUD, pitch graph, and results.
-- Multiplayer setup now remembers player profile and microphone assignments in app settings and closes after starting playback.
 - Desktop and Playback windows now remember their size and whether they were maximized between launches.
 - Added independent **Combine multi-channel** controls for solo and multiplayer scoring, shown when a multi-channel desktop input is available.
 - Added custom playback backgrounds from uploaded files or HTTPS links, automatically recognizing supported static image, Nightingale GLSL shader, and silent looping video extensions.
 - Added a master volume control to Playback settings.
 - Added local multiplayer playback for two to four singers, with per-player microphone and profile selection, editable queue lineups, keyboard and gamepad navigation, live scores, and ranked results.
+- Multiplayer setup now lets each player choose a color used in the playback HUD, pitch graph, and results.
+- Multiplayer setup now remembers player profile and microphone assignments in app settings and closes after starting playback.
 - **Rescan library** now also picks up analyses that another machine left in a shared cache folder: songs already in the library whose stems and transcript exist in the cache are marked ready without re-running analysis, and a toast summarizes how many were updated.
 - The lyrics editor pre-fills from a `.lrc` / `.elrc` file next to a local song's audio when the song has no lyrics yet, and offers a **Use local .lrc** action otherwise; nothing is written until Save.
 - Added the ability to toggle the display of romanized lyrics for CJK languages in Settings.
@@ -40,6 +42,8 @@ below.
 
 ### Fixes
 
+- Audio-reactive backgrounds in multiplayer now respond to the merged microphone waveform from every player instead of only Player 1.
+- Self-hosted web mode now requests microphone permission before enumerating inputs, so browsers expose the available devices.
 - Closing the main desktop window now exits after its native webview is destroyed, preventing a lingering event loop and WebView2 window-class cleanup errors.
 - Fixed the Docker image's frontend build by matching the Node 22 and pnpm 11 versions that `client/package.json` requires.
 - Whisper now falls back to CPU when CTranslate2 has no CUDA support (for example the CPU-only aarch64 wheels), instead of failing analysis.

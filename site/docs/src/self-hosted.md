@@ -62,7 +62,7 @@ If your songs are on the server at `/srv/music/karaoke`, enter that full path in
 
 ## Microphone support and HTTPS
 
-Browsers block microphone capture on normal HTTP pages unless the page is `localhost`. Since `<hostname>.local` is not treated as secure, mic capture needs HTTPS. This can vary per-browser and per-setup, if mic capture works for you via HTTP-connection, feel free to skip this step (If you still want to use it via HTTP you must [config you browser](https://www.windowstechit.com/28309/insecure-origins-treated-as-secure/)).
+Browsers block microphone capture on normal HTTP pages unless the page is `localhost`. Since `<hostname>.local` is not treated as secure, mic capture needs HTTPS. When Nightingale asks for microphone access, allow it so the browser can list your inputs.
 
 Nightingale already serves HTTPS at:
 
@@ -144,7 +144,7 @@ This replaces the server binary and restarts Nightingale. Your config, library, 
 To install a specific version:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rzru/nightingale/master/scripts/install.sh | NIGHTINGALE_VERSION=v1.2.0 bash
+curl -fsSL https://raw.githubusercontent.com/rzru/nightingale/master/scripts/install.sh | NIGHTINGALE_VERSION=v1.3.0 bash
 ```
 
 ## Useful commands
