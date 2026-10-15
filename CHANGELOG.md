@@ -42,7 +42,7 @@ below.
 
 ### Fixes
 
-- Desktop window state persistence now runs once after resizing settles instead of querying macOS on every resize event, preventing startup and live-resize stalls.
+- Desktop drag-resizing no longer performs macOS window queries or renderer IPC; dimensions are captured from native resize events and persisted when the window closes.
 - Audio-reactive backgrounds in multiplayer now respond to the merged microphone waveform from every player instead of only Player 1.
 - Self-hosted web mode now requests microphone permission before enumerating inputs, so browsers expose the available devices.
 - Closing the main desktop window now exits after its native webview is destroyed, preventing a lingering event loop and WebView2 window-class cleanup errors.

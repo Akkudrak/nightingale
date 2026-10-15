@@ -3,21 +3,34 @@ import { MinusIcon, SquareIcon, XIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { loadConfig, saveConfig } from '@/bridge/config';
-import { isFullScreen as tauriIsFullScreen, setFullScreen } from '@/bridge/fullScreen';
+import {
+  FULLSCREEN_CHANGE_EVENT,
+  isFullScreen as tauriIsFullScreen,
+  setFullScreen,
+} from '@/bridge/fullScreen';
 import { isSessionPlayback } from '@/bridge/playback-session';
 import { isTauri } from '@/bridge/runtime';
-import {
-  minimizeWindow,
-  triggerFrontendReady,
-  updateWindowState,
-  windowImmersive,
-} from '@/bridge/window';
-
-const RESIZE_SETTLE_MS = 250;
+import { minimizeWindow, triggerFrontendReady, windowImmersive } from '@/bridge/window';
 
 export function TauriAppShell({ children }: { children: React.ReactNode }) {
+  const [fullscreen, setFullscreen] = useState(false);
+
   useEffect(() => {
+    if (!isTauri) {
+      return undefined;
+    }
+
+    const refreshFullscreen = () => {
+      void windowImmersive()
+        .then(setFullscreen)
+        .catch(() => undefined);
+    };
+
     void triggerFrontendReady().catch(() => undefined);
+    refreshFullscreen();
+    window.addEventListener(FULLSCREEN_CHANGE_EVENT, refreshFullscreen);
+
+    return () => window.removeEventListener(FULLSCREEN_CHANGE_EVENT, refreshFullscreen);
   }, []);
 
   useEffect(() => {
@@ -49,65 +62,14 @@ export function TauriAppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-svh min-h-0 flex-col">
-      <TitleBar />
+      <TitleBar fullscreen={fullscreen} />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
     </div>
   );
 }
 
-function TitleBar() {
-  const [fullscreen, setFullscreen] = useState(false);
+function TitleBar({ fullscreen }: { fullscreen: boolean }) {
   const sessionPlayback = isSessionPlayback();
-
-  useEffect(() => {
-    const win = getCurrentWindow();
-    let disposed = false;
-    let unlistenResize: (() => void) | undefined;
-    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
-
-    const refreshFullscreen = async () => {
-      const immersive = await windowImmersive();
-      if (!disposed) {
-        setFullscreen(immersive);
-      }
-    };
-
-    const sync = async (size: { width: number; height: number }) => {
-      const [immersive, maximized] = await Promise.all([windowImmersive(), win.isMaximized()]);
-      if (disposed) {
-        return;
-      }
-      setFullscreen(immersive);
-      await updateWindowState(maximized, size.width, size.height);
-    };
-
-    const scheduleSync = (size: { width: number; height: number }) => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        void sync(size).catch(() => undefined);
-      }, RESIZE_SETTLE_MS);
-    };
-
-    void refreshFullscreen().catch(() => undefined);
-
-    void win
-      .onResized(({ payload }) => scheduleSync(payload))
-      .then((fn) => {
-        if (disposed) {
-          fn();
-        } else {
-          unlistenResize = fn;
-        }
-        return undefined;
-      })
-      .catch(() => undefined);
-
-    return () => {
-      disposed = true;
-      clearTimeout(resizeTimer);
-      unlistenResize?.();
-    };
-  }, []);
 
   useEffect(() => {
     document.documentElement.style.setProperty(

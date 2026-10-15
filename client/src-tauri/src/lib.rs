@@ -22,8 +22,14 @@ use tauri::{
 #[derive(Clone)]
 struct DesktopRuntime(AppHandle);
 
+#[derive(Clone)]
+struct TrackedWindowState {
+    state: WindowState,
+    latest_size: Option<PhysicalSize<u32>>,
+}
+
 #[derive(Default)]
-struct WindowStates(Arc<Mutex<HashMap<String, WindowState>>>);
+struct WindowStates(Arc<Mutex<HashMap<String, TrackedWindowState>>>);
 
 fn saved_window_state(config: &AppConfig, label: &str) -> WindowState {
     match label {
@@ -43,19 +49,49 @@ fn save_window_state(label: &str, state: WindowState) {
     config.save();
 }
 
+fn snapshot_window_state(
+    states: &Arc<Mutex<HashMap<String, TrackedWindowState>>>,
+    label: &str,
+    maximized: bool,
+) -> Option<WindowState> {
+    let mut states = states.lock().ok()?;
+    let tracked = states.get_mut(label)?;
+    tracked.state.maximized = maximized;
+    if !maximized {
+        if let Some(size) = tracked.latest_size {
+            tracked.state.width = Some(size.width);
+            tracked.state.height = Some(size.height);
+        }
+    }
+    Some(tracked.state.clone())
+}
+
 fn register_window_state(window: &WebviewWindow, state: WindowState) {
     let label = window.label().to_string();
     let states = window.state::<WindowStates>().inner().0.clone();
     if let Ok(mut states) = states.lock() {
-        states.insert(label.clone(), state);
+        states.insert(
+            label.clone(),
+            TrackedWindowState {
+                state,
+                latest_size: None,
+            },
+        );
     }
     let app = window.app_handle().clone();
+    let tracked_window = window.clone();
     window.on_window_event(move |event| match event {
-        WindowEvent::CloseRequested { .. } => {
-            if let Ok(states) = states.lock() {
-                if let Some(state) = states.get(&label) {
-                    save_window_state(&label, state.clone());
+        WindowEvent::Resized(size) => {
+            if let Ok(mut states) = states.lock() {
+                if let Some(state) = states.get_mut(&label) {
+                    state.latest_size = Some(*size);
                 }
+            }
+        }
+        WindowEvent::CloseRequested { .. } => {
+            let maximized = tracked_window.is_maximized().unwrap_or(false);
+            if let Some(state) = snapshot_window_state(&states, &label, maximized) {
+                save_window_state(&label, state);
             }
         }
         WindowEvent::Destroyed if label == "main" => app.exit(0),
@@ -74,12 +110,12 @@ fn configure_window_state(window: &WebviewWindow, state: WindowState) {
 }
 
 fn save_open_window_states(app: &AppHandle) {
-    let states = app.state::<WindowStates>();
-    let Ok(states) = states.0.lock() else {
-        return;
-    };
-    for (label, state) in states.iter() {
-        save_window_state(label, state.clone());
+    let states = app.state::<WindowStates>().inner().0.clone();
+    for (label, window) in app.webview_windows() {
+        let maximized = window.is_maximized().unwrap_or(false);
+        if let Some(state) = snapshot_window_state(&states, &label, maximized) {
+            save_window_state(&label, state);
+        }
     }
 }
 
@@ -173,26 +209,6 @@ fn track_window_state(app: AppHandle, label: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-fn update_window_state(
-    window: WebviewWindow,
-    maximized: bool,
-    width: u32,
-    height: u32,
-) -> Result<(), String> {
-    let states = window.state::<WindowStates>();
-    let mut states = states.0.lock().map_err(|error| error.to_string())?;
-    let state = states
-        .get_mut(window.label())
-        .ok_or_else(|| "window state is not tracked".to_string())?;
-    state.maximized = maximized;
-    if !maximized {
-        state.width = Some(width);
-        state.height = Some(height);
-    }
-    Ok(())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     logging::init();
@@ -209,7 +225,6 @@ pub fn run() {
             minimize_window,
             load_window_state,
             track_window_state,
-            update_window_state,
             import_custom_background,
             get_media_endpoint,
             list_microphones,
