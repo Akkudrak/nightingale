@@ -42,7 +42,7 @@ below.
 
 ### Fixes
 
-- Desktop window state tracking no longer floods Tauri IPC during macOS resize events, preventing severe UI lag and malformed window-size responses.
+- Desktop window state is now tracked directly from native resize events instead of repeated renderer IPC, preventing severe macOS UI lag and malformed window-size responses.
 - Audio-reactive backgrounds in multiplayer now respond to the merged microphone waveform from every player instead of only Player 1.
 - Self-hosted web mode now requests microphone permission before enumerating inputs, so browsers expose the available devices.
 - Closing the main desktop window now exits after its native webview is destroyed, preventing a lingering event loop and WebView2 window-class cleanup errors.

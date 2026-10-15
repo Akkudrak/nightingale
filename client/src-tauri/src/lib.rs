@@ -50,7 +50,20 @@ fn register_window_state(window: &WebviewWindow, state: WindowState) {
         states.insert(label.clone(), state);
     }
     let app = window.app_handle().clone();
+    let tracked_window = window.clone();
     window.on_window_event(move |event| match event {
+        WindowEvent::Resized(size) => {
+            let maximized = tracked_window.is_maximized().unwrap_or(false);
+            if let Ok(mut states) = states.lock() {
+                if let Some(state) = states.get_mut(&label) {
+                    state.maximized = maximized;
+                    if !maximized {
+                        state.width = Some(size.width);
+                        state.height = Some(size.height);
+                    }
+                }
+            }
+        }
         WindowEvent::CloseRequested { .. } => {
             if let Ok(states) = states.lock() {
                 if let Some(state) = states.get(&label) {
@@ -173,26 +186,6 @@ fn track_window_state(app: AppHandle, label: String) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-fn update_window_state(
-    window: WebviewWindow,
-    maximized: bool,
-    width: u32,
-    height: u32,
-) -> Result<(), String> {
-    let states = window.state::<WindowStates>();
-    let mut states = states.0.lock().map_err(|error| error.to_string())?;
-    let state = states
-        .get_mut(window.label())
-        .ok_or_else(|| "window state is not tracked".to_string())?;
-    state.maximized = maximized;
-    if !maximized {
-        state.width = Some(width);
-        state.height = Some(height);
-    }
-    Ok(())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     logging::init();
@@ -209,7 +202,6 @@ pub fn run() {
             minimize_window,
             load_window_state,
             track_window_state,
-            update_window_state,
             import_custom_background,
             get_media_endpoint,
             list_microphones,
