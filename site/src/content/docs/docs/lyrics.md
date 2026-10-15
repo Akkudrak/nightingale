@@ -1,4 +1,6 @@
-# Lyrics & Transcription
+---
+title: Lyrics & Transcription
+---
 
 Nightingale provides word-level synchronized lyrics through two sources.
 

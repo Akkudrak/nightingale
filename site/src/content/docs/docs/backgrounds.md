@@ -1,4 +1,6 @@
-# Backgrounds
+---
+title: Backgrounds
+---
 
 Nightingale offers a deep selection of background themes during playback, cycled with the `T` key.
 

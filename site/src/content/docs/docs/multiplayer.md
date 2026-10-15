@@ -1,4 +1,6 @@
-# Multiplayer
+---
+title: Multiplayer
+---
 
 Nightingale supports local multiplayer for two to four singers. Each singer uses a separate microphone and can sing as a saved profile or as a guest.
 
@@ -38,10 +40,10 @@ When multiplayer starts from the playback queue, the lineup stays active for eve
 - **Change players** opens player setup before the next song.
 - The exit button returns to the menu.
 
-Songs can be reordered or removed from the queue before playback. See [Keyboard & Gamepad](./controls-reference.md#playback-queue-and-session-mode) for queue controls.
+Songs can be reordered or removed from the queue before playback. See [Keyboard & Gamepad](/docs/controls-reference/#playback-queue-and-session-mode) for queue controls.
 
 ## Results and Profiles
 
 Results are ranked from highest score to lowest. Scores assigned to saved profiles are added to those profiles' per-song scoreboards. Guest scores appear in the current results but are not saved.
 
-See [Pitch Scoring](./scoring.md) for calibration and scoring details, and [Profiles](./profiles.md) for stored score behavior.
+See [Pitch Scoring](/docs/scoring/) for calibration and scoring details, and [Profiles](/docs/profiles/) for stored score behavior.

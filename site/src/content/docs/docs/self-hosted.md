@@ -1,4 +1,6 @@
-# Self-Hosted Web Mode
+---
+title: Self-Hosted Web Mode
+---
 
 Run Nightingale on a Linux box at home, then open it from phones, laptops, tablets, or TVs on your LAN.
 
@@ -174,7 +176,7 @@ If your router supports DHCP reservations, reserve a stable IP for the host too.
 
 ## Run with Docker
 
-Prefer containers? You can skip the systemd / Caddy / Avahi installer entirely and run the server in Docker (CPU or CUDA/GPU). See [Docker](./docker.md).
+Prefer containers? You can skip the systemd / Caddy / Avahi installer entirely and run the server in Docker (CPU or CUDA/GPU). See [Docker](/docs/docker/).
 
 ## Build from source
 

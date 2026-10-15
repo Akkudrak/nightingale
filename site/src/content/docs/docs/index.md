@@ -1,4 +1,8 @@
-# Nightingale
+---
+title: Nightingale
+description: Turn your music library into karaoke with stem separation, synchronized lyrics, pitch scoring, and dynamic backgrounds.
+slug: docs
+---
 
 **Karaoke from any song in your music library, powered by neural networks.**
 

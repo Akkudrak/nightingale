@@ -1,4 +1,6 @@
-# Stem Separation
+---
+title: Stem Separation
+---
 
 Nightingale separates lead vocals from instrumentals so you can sing along to the backing track.
 
@@ -27,4 +29,4 @@ This is useful for learning new songs or for singers who want a reference pitch.
 
 ## UltraStar Bundles Skip Stem Separation
 
-UltraStar Deluxe songs that ship with `#VOCALS` and `#INSTRUMENTAL` files are used directly during playback — no stem separation is run. If only `#AUDIO` is provided, Nightingale falls back to running the configured separator on that file. See [UltraStar Deluxe](./usdx.md) for the supported tags.
+UltraStar Deluxe songs that ship with `#VOCALS` and `#INSTRUMENTAL` files are used directly during playback — no stem separation is run. If only `#AUDIO` is provided, Nightingale falls back to running the configured separator on that file. See [UltraStar Deluxe](/docs/usdx/) for the supported tags.

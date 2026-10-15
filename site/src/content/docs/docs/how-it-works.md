@@ -1,20 +1,21 @@
-# How It Works
+---
+title: How It Works
+---
 
 Nightingale's pipeline transforms any audio or video file into a karaoke experience through several stages.
 
 ## Pipeline Overview
 
-<pre class="mermaid">
-flowchart TD
-    A["🎵 Audio or video file"] --> B["UVR Karaoke / Demucs"]
-    A2["🎼 USDX bundle (.txt / .usdx)"] --> E["Tauri App (Rust + React)"]
-    B --> |"vocals + instrumental"| C["LRCLIB"]
-    C --> |"synced lyrics if available"| D["WhisperX (large-v3) or Parakeet v3 (exp.)"]
-    D --> |"word-level alignment, CJK readings"| E
-    E --> F["🎤 Plays instrumental + synced lyrics\nwith pitch scoring, key/tempo controls,\nmic monitoring, and audio-reactive backgrounds"]
-</pre>
+### Audio and video files
 
-USDX bundles bypass stem separation and transcription entirely — the `.txt` is parsed into a transcript JSON shaped exactly like the analyzer cache, so playback reuses the existing pipeline. See [UltraStar Deluxe](./usdx.md).
+1. **Separate the audio** with UVR Karaoke or Demucs to produce vocal and instrumental stems.
+2. **Find or transcribe lyrics** with LRCLIB, WhisperX, or experimental Parakeet v3.
+3. **Align every word**, including optional readings for CJK lyrics.
+4. **Play the song** with synchronized lyrics, pitch scoring, key and tempo controls, mic monitoring, and audio-reactive backgrounds.
+
+### UltraStar Deluxe bundles
+
+USDX bundles bypass stem separation and transcription. Nightingale parses the bundled `.txt` or `.usdx` data into the same transcript format used by the analyzer cache, so both paths share the playback pipeline. See [UltraStar Deluxe](/docs/usdx/).
 
 ## Analyzer Server
 

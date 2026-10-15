@@ -1,4 +1,6 @@
-# Profiles
+---
+title: Profiles
+---
 
 Nightingale supports multiple player profiles for tracking solo and multiplayer scores across different singers.
 
@@ -16,7 +18,7 @@ Switch between profiles from the sidebar. The active profile is shown in the UI 
 
 ## Multiplayer Profiles
 
-During [multiplayer](./multiplayer.md) setup, assign each singer a saved profile or **Guest**. A saved profile can only be assigned to one singer in the lineup. Scores are saved to the assigned profiles; guest scores appear in the round's ranked results but are not stored.
+During [multiplayer](/docs/multiplayer/) setup, assign each singer a saved profile or **Guest**. A saved profile can only be assigned to one singer in the lineup. Scores are saved to the assigned profiles; guest scores appear in the round's ranked results but are not stored.
 
 ## Score Tracking
 

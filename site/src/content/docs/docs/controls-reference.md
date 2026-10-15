@@ -1,4 +1,6 @@
-# Keyboard & Gamepad Reference
+---
+title: Keyboard & Gamepad Reference
+---
 
 This page provides a complete reference of all keyboard shortcuts and gamepad mappings.
 
@@ -52,7 +54,7 @@ Open **Playback Queue** from the song-list toolbar to review the set list. The f
 
 You can remove individual songs, choose **Play Queue**, use the people button to play the queue in multiplayer, or clear the full queue after confirmation. A multiplayer lineup stays active for subsequent queued songs, and the results screen lets you change players before starting the next song.
 
-In **Settings → Playback**, choose **Session mode** to keep the menu available while playback runs in a dedicated desktop window or browser tab. **Classic mode** replaces the menu with playback in the current window. See [Multiplayer](./multiplayer.md) for player setup and scoring behavior.
+In **Settings → Playback**, choose **Session mode** to keep the menu available while playback runs in a dedicated desktop window or browser tab. **Classic mode** replaces the menu with playback in the current window. See [Multiplayer](/docs/multiplayer/) for player setup and scoring behavior.
 
 ## Skip Buttons
 

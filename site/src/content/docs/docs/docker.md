@@ -1,4 +1,6 @@
-# Docker
+---
+title: Docker
+---
 
 Run the self-hosted web server in a container instead of installing it with `scripts/install.sh`. This skips the systemd / Caddy / Avahi setup and just runs the `server` binary, so you bring your own networking (port mapping or a reverse proxy).
 
@@ -132,7 +134,7 @@ Browsers only allow microphone capture in a secure context. `http://<host>:64448
 To enable mic scoring, terminate TLS in front of the container. Two common options:
 
 - Put a reverse proxy (Caddy, Traefik, nginx) in front and serve HTTPS with a trusted certificate.
-- Run with `--network host` and front the container with a host-level Caddy, mirroring the bare-metal [self-hosted](./self-hosted.md) setup.
+- Run with `--network host` and front the container with a host-level Caddy, mirroring the bare-metal [self-hosted](/docs/self-hosted/) setup.
 
 ## Updating
 

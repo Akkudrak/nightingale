@@ -1,4 +1,6 @@
-# Pitch Scoring
+---
+title: Pitch Scoring
+---
 
 Nightingale includes real-time pitch scoring to gamify the karaoke experience.
 
@@ -38,4 +40,4 @@ Use **Settings → General → Mic latency** to compensate for speaker-to-microp
 
 ## Per-Song Scoreboards
 
-Each song maintains a scoreboard of past performances. Solo scores use the active profile; multiplayer scores use the profile selected for each singer. See [Multiplayer](./multiplayer.md) for setup and queue behavior.
+Each song maintains a scoreboard of past performances. Solo scores use the active profile; multiplayer scores use the profile selected for each singer. See [Multiplayer](/docs/multiplayer/) for setup and queue behavior.

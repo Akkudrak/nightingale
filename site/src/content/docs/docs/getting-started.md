@@ -1,4 +1,7 @@
-# Getting Started
+---
+title: Getting Started
+description: Install Nightingale and add your first songs.
+---
 
 ## Download
 
@@ -16,7 +19,7 @@ Supported audio formats: `.mp3`, `.flac`, `.ogg`, `.opus`, `.wav`, `.m4a`, `.aac
 
 Supported video formats: `.mp4`, `.mkv`, `.avi`, `.webm`, `.mov`, `.m4v`.
 
-UltraStar Deluxe songs (`.usdx`, plus `.txt` files whose contents look like USDX) are also picked up automatically and bypass the analyzer pipeline entirely. See [UltraStar Deluxe](./usdx.md) for the supported tags and folder layout.
+UltraStar Deluxe songs (`.usdx`, plus `.txt` files whose contents look like USDX) are also picked up automatically and bypass the analyzer pipeline entirely. See [UltraStar Deluxe](/docs/usdx/) for the supported tags and folder layout.
 
 ## macOS: Removing the Quarantine Flag
 
@@ -56,7 +59,7 @@ When prompted, select your music folder. Nightingale scans it for supported audi
 
 Use the song-list toolbar to switch between a compact table and an artwork grid. Search combines with sidebar selections and the toolbar's analysis-status and lyric-source filters, so you can narrow the library without losing context.
 
-Select a song to open its details sidebar before playback. From there you can review the cover, metadata, and analysis state; adjust key and tempo; edit or provide lyrics; run analysis actions; play immediately; start [multiplayer](./multiplayer.md); or add the song to the playback queue.
+Select a song to open its details sidebar before playback. From there you can review the cover, metadata, and analysis state; adjust key and tempo; edit or provide lyrics; run analysis actions; play immediately; start [multiplayer](/docs/multiplayer/); or add the song to the playback queue.
 
 Open the queue from the toolbar to see what is next, reorder or remove songs, start the queue in solo or multiplayer mode, or clear it. Key and tempo choices are stored with each queued song.
 
@@ -71,7 +74,7 @@ Before most songs can be played as karaoke, they need to be analyzed:
 3. Nightingale separates stems, finds or transcribes lyrics, and aligns their timing.
 4. Results are cached — subsequent plays are instant.
 
-Timed LRC / Enhanced LRC and UltraStar songs can skip some or all of this pipeline. See [Lyrics & Transcription](./lyrics.md#editing--providing-lyrics) and [UltraStar Deluxe](./usdx.md).
+Timed LRC / Enhanced LRC and UltraStar songs can skip some or all of this pipeline. See [Lyrics & Transcription](/docs/lyrics/#editing--providing-lyrics) and [UltraStar Deluxe](/docs/usdx/).
 
 Use the song-list actions menu to analyze songs, cancel active analysis, refresh metadata, realign lyrics, reanalyze, or clear cached results across the current filtered list. You can also enable **Settings → Analysis → Auto-analyze** to queue newly discovered unanalyzed songs after each scan. Bulk actions respect the active search, sidebar selection, status filter, and lyric-source filter.
 
@@ -98,7 +101,7 @@ The Linux build ships **without** the in-app updater. The **Update** entry is st
 
 There is no update badge on the sidebar avatar on Linux.
 
-If the macOS or Windows dialog reports an error, see [Troubleshooting → Updates](./troubleshooting.md#updates).
+If the macOS or Windows dialog reports an error, see [Troubleshooting → Updates](/docs/troubleshooting/#updates).
 
 ## Force Re-setup
 

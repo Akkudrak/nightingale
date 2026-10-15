@@ -1,4 +1,6 @@
-# UltraStar Deluxe
+---
+title: UltraStar Deluxe
+---
 
 Nightingale can play [UltraStar Deluxe](https://usdx.eu/) songs directly from your library, using the pitch and lyric data shipped with each song instead of running its own analyzer. This support is **experimental**.
 
@@ -59,7 +61,7 @@ Note kinds (`:` regular, `*` golden, `F` freestyle, `R` / `G` rap) are recognise
 ## How USDX songs flow through the pipeline
 
 1. The `.txt` is parsed into a transcript JSON whose shape is identical to what the analyzer cache writes for non-USDX songs, so playback reuses the existing transcript and lyric path with no special-casing.
-2. If `#VOCALS` and `#INSTRUMENTAL` are both provided, [stem separation](./stems.md) is **skipped** entirely. Otherwise, the configured separator runs on `#AUDIO` once and the result is cached like any other song.
+2. If `#VOCALS` and `#INSTRUMENTAL` are both provided, [stem separation](/docs/stems/) is **skipped** entirely. Otherwise, the configured separator runs on `#AUDIO` once and the result is cached like any other song.
 3. If `#VIDEO` is set, it plays as the source background. The other shader and Pixabay backgrounds are still available with `T`.
 4. Re-scanning the library does not re-parse unchanged USDX files; transcript synthesis is keyed off the file's blake3 hash like every other cache.
 

@@ -1,4 +1,6 @@
-# Library Sources
+---
+title: Library Sources
+---
 
 Nightingale can build your karaoke library from a local folder, Plex Media Server, Jellyfin, or Navidrome. Use the **Library** buttons in the sidebar to choose one.
 
@@ -19,7 +21,7 @@ Use this when your files are already on this computer, an external drive, or a m
 
 To update the list after adding or removing files, rescan from the sidebar. Existing analysis is reused when the file has not changed.
 
-See [Getting Started](./getting-started.md#adding-music) for supported formats.
+See [Getting Started](/docs/getting-started/#adding-music) for supported formats.
 
 ## Plex Media Server
 

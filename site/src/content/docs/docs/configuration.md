@@ -1,4 +1,6 @@
-# Configuration
+---
+title: Configuration
+---
 
 Nightingale stores app settings in `~/.nightingale/config.json`.
 
@@ -48,8 +50,8 @@ Toggle between dark and light themes from the sidebar. The theme preference is s
 
 | Key | Purpose |
 |---|---|
-| `asr_engine` | Selects the transcription engine. `whisper` (default) or `parakeet`. See [Lyrics & Transcription](./lyrics.md#choosing-the-asr-engine). |
-| `align_backend` | Forced-alignment backend. `whisperx` (default, Python Viterbi), `ctc` (torchaudio `forced_align` C++/CUDA kernel; faster), or `qwen` (Qwen3-ForcedAligner-0.6B; 11 languages incl. CJK, runs on CUDA/MPS/CPU). All non-default backends fall back to WhisperX on error or unsupported input. See [Lyrics & Transcription](./lyrics.md#choosing-the-forced-alignment-backend). |
+| `asr_engine` | Selects the transcription engine. `whisper` (default) or `parakeet`. See [Lyrics & Transcription](/docs/lyrics/#choosing-the-asr-engine). |
+| `align_backend` | Forced-alignment backend. `whisperx` (default, Python Viterbi), `ctc` (torchaudio `forced_align` C++/CUDA kernel; faster), or `qwen` (Qwen3-ForcedAligner-0.6B; 11 languages incl. CJK, runs on CUDA/MPS/CPU). All non-default backends fall back to WhisperX on error or unsupported input. See [Lyrics & Transcription](/docs/lyrics/#choosing-the-forced-alignment-backend). |
 | `separator` | Stem separation model: `karaoke` (UVR, default) or `demucs`. |
 | `vocal_detection_threshold_pct` | RMS threshold (fraction of the loudest window, `0.0`–`1.0`, default `0.15`) that marks where vocals start and end. Lower values keep more quiet intros/outros and soft singing; higher values trim more silence. Shown in Settings as **Vocal detection sensitivity** (0–60%). |
 | `whisper_model` | Whisper model size: `large-v3` (default), `large-v3-turbo`, `medium`, `small`, `base`, `tiny`. Ignored when `asr_engine` is `parakeet`. |
