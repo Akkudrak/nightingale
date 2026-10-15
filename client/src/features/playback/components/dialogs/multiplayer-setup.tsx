@@ -31,6 +31,12 @@ import {
 } from '@/shared/components/ui/select';
 import { useConfig } from '@/shared/config/use-config';
 import { useConfigMutation } from '@/shared/config/use-config-mutation';
+import {
+  PLAYER_COLOR_OPTIONS,
+  defaultPlayerColor,
+  playerColorOption,
+  type PlayerColor,
+} from '@/shared/player-colors';
 import { cn } from '@/shared/utils/cn';
 import type { AppConfig } from '@/types/AppConfig';
 
@@ -39,7 +45,6 @@ const RING = 'ring-2 ring-primary';
 const NO_FOCUS_RING = 'focus-visible:ring-0 focus-visible:border-transparent';
 const PROFILE_PREFIX = 'profile:';
 const GUEST_VALUE = 'guest';
-const PLAYER_COLORS = ['bg-rose-400', 'bg-fuchsia-400', 'bg-amber-400', 'bg-emerald-400'];
 
 type MultiplayerSetupDialogProps = {
   open: boolean;
@@ -65,6 +70,7 @@ function defaultPlayers(
     id: `player-${index + 1}`,
     profile: index === 0 ? activeProfile : null,
     microphoneId: microphoneIds[index] ?? '',
+    color: defaultPlayerColor(index),
   }));
 }
 
@@ -116,6 +122,7 @@ function initialPlayers(input: InitialPlayersInput): PlaybackPlayer[] {
       profile:
         player.profile !== null && availableProfiles.has(player.profile) ? player.profile : null,
       microphoneId,
+      color: player.color,
     };
   });
 }
@@ -136,6 +143,8 @@ const setupDescription = (queuePlayback: boolean | undefined): string =>
     : 'Choose one microphone per singer.';
 
 const setupSubmitLabel = (label: string | undefined): string => label ?? 'Start multiplayer';
+
+const setupNavOpen = (open: boolean, colorDialogOpen: boolean): boolean => open && !colorDialogOpen;
 
 const combineMultiplayerChannels = (config: AppConfig | undefined): boolean =>
   config?.multiplayer_combine_multi_channel ?? true;
@@ -217,7 +226,7 @@ const setupStops = (
   hasMultiChannelInput: boolean,
 ) => [
   ...(hasMultiChannelInput ? [1] : []),
-  ...players.map((_, index) => (index >= 2 ? 3 : 2)),
+  ...players.map((_, index) => (index >= 2 ? 4 : 3)),
   ...(canAdd ? [1] : []),
   canStart ? 2 : 1,
 ];
@@ -229,12 +238,15 @@ type PlayerRowsProps = {
   updatePlayer: (id: string, patch: Partial<PlaybackPlayer>) => void;
   removePlayer: (id: string) => void;
   segmentOffset: number;
+  openColorDialog: (id: string) => void;
   navClass: (segment: number, slot?: number) => string;
   focusSegment: (segment: number, slot?: number) => void;
 };
 
 const playerNavSlots = (index: number) =>
-  index >= 2 ? { profile: 1, microphone: 2 } : { profile: 0, microphone: 1 };
+  index >= 2
+    ? { color: 0, remove: 1, profile: 2, microphone: 3 }
+    : { color: 0, profile: 1, microphone: 2 };
 
 function updatedPlayers(
   players: readonly PlaybackPlayer[],
@@ -263,6 +275,7 @@ function PlayerRows({
   updatePlayer,
   removePlayer,
   segmentOffset,
+  openColorDialog,
   navClass,
   focusSegment,
 }: PlayerRowsProps) {
@@ -275,19 +288,29 @@ function PlayerRows({
         className="grid gap-3 px-1 py-3 sm:grid-cols-[7rem_minmax(0,0.8fr)_minmax(0,1.2fr)] sm:items-end"
       >
         <div className="flex h-7 items-center gap-2">
-          <span
-            className={`size-2.5 rounded-full ${PLAYER_COLORS[playerNumber(player.id) - 1]}`}
-            aria-hidden="true"
-          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className={cn('rounded-full', navClass(segment, slots.color))}
+            onFocus={() => focusSegment(segment, slots.color)}
+            onMouseEnter={() => focusSegment(segment, slots.color)}
+            onClick={() => openColorDialog(player.id)}
+            aria-label={`Choose color for Player ${index + 1}`}
+          >
+            <span
+              className={`size-2.5 rounded-full ${playerColorOption(player.color).className}`}
+            />
+          </Button>
           <h3 className="text-sm font-semibold">Player {index + 1}</h3>
           {index >= 2 ? (
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              className={navClass(segment, 0)}
-              onFocus={() => focusSegment(segment, 0)}
-              onMouseEnter={() => focusSegment(segment, 0)}
+              className={navClass(segment, slots.remove)}
+              onFocus={() => focusSegment(segment, slots.remove)}
+              onMouseEnter={() => focusSegment(segment, slots.remove)}
               onClick={() => removePlayer(player.id)}
               aria-label={`Remove player ${index + 1}`}
             >
@@ -406,6 +429,53 @@ function CombineChannelsField({
   );
 }
 
+type PlayerColorDialogProps = {
+  player: PlaybackPlayer | undefined;
+  onColorChange: (color: PlayerColor) => void;
+  onOpenChange: (open: boolean) => void;
+};
+
+function PlayerColorDialog({ player, onColorChange, onOpenChange }: PlayerColorDialogProps) {
+  const open = player !== undefined;
+  const selectedColor = player?.color;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { focusedIndex, focusSegment } = useDialogNav({
+    open,
+    itemCount: PLAYER_COLOR_OPTIONS.length,
+    containerRef,
+    onBack: () => onOpenChange(false),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent ref={containerRef} showCloseButton={false} className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Choose player color</DialogTitle>
+          <DialogDescription>
+            Choose the color used for this player during playback.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-2">
+          {PLAYER_COLOR_OPTIONS.map((option, index) => (
+            <Button
+              key={option.value}
+              type="button"
+              variant={option.value === selectedColor ? 'default' : 'outline'}
+              className={cn('justify-start', NO_FOCUS_RING, focusedIndex === index && RING)}
+              onFocus={() => focusSegment(index)}
+              onMouseEnter={() => focusSegment(index)}
+              onClick={() => onColorChange(option.value)}
+            >
+              <span className={`size-3 rounded-full ${option.className}`} aria-hidden="true" />
+              {option.label}
+            </Button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function MultiplayerSetupDialog({
   open,
   onOpenChange,
@@ -430,6 +500,7 @@ export function MultiplayerSetupDialog({
   ).some((device) => device.channelCount > 1);
   const [rememberedPlayers, setRememberedPlayers] = useAtom(multiplayerPlayersAtom);
   const [players, setPlayers] = useState<PlaybackPlayer[]>([]);
+  const [colorPlayerId, setColorPlayerId] = useState<string | null>(null);
   const initialized = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -478,9 +549,13 @@ export function MultiplayerSetupDialog({
     () => setupStops(players, canAddPlayer, canStart, hasMultiChannelInput),
     [canAddPlayer, canStart, hasMultiChannelInput, players],
   );
-  const closeDialog = () => onOpenChange(false);
+  const closeDialog = () => {
+    setColorPlayerId(null);
+    onOpenChange(false);
+  };
+  const colorDialogOpen = colorPlayerId !== null;
   const { isFocused, focusSegment } = useDialogNav({
-    open,
+    open: setupNavOpen(open, colorDialogOpen),
     itemCount: stops.reduce((total, count) => total + count, 0),
     stops,
     containerRef,
@@ -520,6 +595,7 @@ export function MultiplayerSetupDialog({
           id: `player-${nextNumber}`,
           profile: null,
           microphoneId: nextMicrophone?.deviceId ?? '',
+          color: defaultPlayerColor(nextNumber - 1),
         },
       ].toSorted((left, right) => playerNumber(left.id) - playerNumber(right.id)),
     );
@@ -541,9 +617,23 @@ export function MultiplayerSetupDialog({
     onStart(players);
     closeDialog();
   };
+  const selectedColorPlayer = players.find((player) => player.id === colorPlayerId);
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      closeDialog();
+      return;
+    }
+    onOpenChange(true);
+  };
+  const changeColor = (color: PlayerColor) => {
+    if (selectedColorPlayer !== undefined) {
+      updatePlayer(selectedColorPlayer.id, { color });
+    }
+    setColorPlayerId(null);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent
         ref={containerRef}
         showCloseButton={false}
@@ -580,6 +670,7 @@ export function MultiplayerSetupDialog({
               updatePlayer={updatePlayer}
               removePlayer={removePlayer}
               segmentOffset={playerSegmentOffset}
+              openColorDialog={setColorPlayerId}
               navClass={navClass}
               focusSegment={focusSegment}
             />
@@ -628,6 +719,15 @@ export function MultiplayerSetupDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+      <PlayerColorDialog
+        player={selectedColorPlayer}
+        onColorChange={changeColor}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) {
+            setColorPlayerId(null);
+          }
+        }}
+      />
     </Dialog>
   );
 }

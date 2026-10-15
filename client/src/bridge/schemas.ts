@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { PLAYER_COLOR_VALUES } from '@/shared/player-colors';
 import type { AppConfig } from '@/types/AppConfig';
 import type { CachePaths } from '@/types/CachePaths';
 import type { LibrarySource } from '@/types/LibrarySource';
@@ -64,10 +65,13 @@ const librarySourceSchema: z.ZodType<LibrarySource> = z.discriminatedUnion('kind
   }),
 ]);
 
+const playerColorSchema = z.enum(PLAYER_COLOR_VALUES);
+
 export const playbackPlayerSchema = z.object({
   id: z.string().min(1),
   profile: z.string().min(1).nullable(),
   microphoneId: z.string().min(1),
+  color: playerColorSchema,
 });
 
 export const playbackPlayersSchema = z

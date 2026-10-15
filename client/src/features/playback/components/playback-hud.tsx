@@ -14,6 +14,7 @@ import {
   usePlaybackTransportState,
 } from '@/features/playback/providers';
 import { computeLyricGapCaption, findCurrentSegment } from '@/features/playback/utils/lyrics-gap';
+import { playerColorOption } from '@/shared/player-colors';
 import type { AppConfig } from '@/types/AppConfig';
 
 import { isPixabayTheme, themeName, type PlaybackTheme } from './theme';
@@ -315,8 +316,6 @@ function creditPositionClass(position: PlaybackHudPosition, windowControls: bool
   return windowControls && position === 'bottom' ? 'top-12' : notePositionClass(position);
 }
 
-const PLAYER_COLORS = ['bg-rose-400', 'bg-fuchsia-400', 'bg-amber-400', 'bg-emerald-400'];
-
 const scoreTextClass = (score: number | null): string =>
   `text-base md:text-lg ${score !== null && score !== 0 ? 'text-white' : 'text-white/50'}`;
 
@@ -331,7 +330,10 @@ function MultiplayerScores({ players }: { players: PlaybackPlayerMicState[] }) {
           <span className="whitespace-nowrap">
             {player.profile ?? `Guest ${index + 1}`}: {player.pitchScore ?? '--'}
           </span>
-          <span className={`size-2 rounded-full ${PLAYER_COLORS[index]}`} aria-hidden="true" />
+          <span
+            className={`size-2 rounded-full ${playerColorOption(player.color).className}`}
+            aria-hidden="true"
+          />
           <span className="sr-only">
             {player.micReady ? 'Microphone ready' : 'Microphone unavailable'}
           </span>

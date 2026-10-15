@@ -25,6 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/shared/components/ui/table';
+import { defaultPlayerColor, playerColorOption } from '@/shared/player-colors';
 import { cn } from '@/shared/utils/cn';
 import type { ScoreRecord } from '@/types/ScoreRecord';
 import type { Song } from '@/types/Song';
@@ -32,8 +33,12 @@ import type { Song } from '@/types/Song';
 const TOP_LIMIT = 5;
 const RING = 'ring-2 ring-primary';
 const NO_FOCUS_RING = 'focus-visible:ring-0 focus-visible:border-transparent';
-const PLAYER_COLORS = ['bg-rose-400', 'bg-fuchsia-400', 'bg-amber-400', 'bg-emerald-400'];
-const EMPTY_RESULT: PlaybackPlayerResult = { id: 'solo', profile: null, score: 0 };
+const EMPTY_RESULT: PlaybackPlayerResult = {
+  id: 'solo',
+  profile: null,
+  color: defaultPlayerColor(0),
+  score: 0,
+};
 
 type Props = {
   open: boolean;
@@ -73,7 +78,7 @@ function MultiplayerResults({ results }: { results: PlaybackPlayerResult[] }) {
               <TableCell>
                 <div className="flex min-w-0 items-center gap-2">
                   <span
-                    className={`size-2.5 shrink-0 rounded-full ${PLAYER_COLORS[number - 1]}`}
+                    className={`size-2.5 shrink-0 rounded-full ${playerColorOption(result.color).className}`}
                     aria-hidden="true"
                   />
                   <span className="truncate font-medium">

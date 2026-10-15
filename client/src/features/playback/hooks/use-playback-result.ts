@@ -18,6 +18,7 @@ import {
 } from '@/features/playback/providers';
 import { useProfiles } from '@/features/profiles/queries/use-profiles';
 import { useLatestRef } from '@/shared/hooks/use-latest-ref';
+import { defaultPlayerColor, type PlayerColor } from '@/shared/player-colors';
 import { PROFILES } from '@/shared/query-keys';
 import type { ScoreRecord } from '@/types/ScoreRecord';
 import type { Song } from '@/types/Song';
@@ -25,6 +26,7 @@ import type { Song } from '@/types/Song';
 export type PlaybackPlayerResult = {
   id: string;
   profile: string | null;
+  color: PlayerColor;
   score: number;
 };
 
@@ -37,11 +39,19 @@ type FinalResultsInput = {
 
 function buildFinalResults(input: FinalResultsInput): PlaybackPlayerResult[] {
   if (!input.multiplayer) {
-    return [{ id: 'solo', profile: input.activeProfile, score: input.soloScore }];
+    return [
+      {
+        id: 'solo',
+        profile: input.activeProfile,
+        color: defaultPlayerColor(0),
+        score: input.soloScore,
+      },
+    ];
   }
   return input.players.map((player) => ({
     id: player.id,
     profile: player.profile,
+    color: player.color,
     score: player.rawScore,
   }));
 }

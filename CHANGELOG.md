@@ -15,6 +15,7 @@ below.
 
 ### Features
 
+- Multiplayer setup now lets each player choose a color used in the playback HUD, pitch graph, and results.
 - Multiplayer setup now remembers player profile and microphone assignments in app settings and closes after starting playback.
 - Desktop and Playback windows now remember their size and whether they were maximized between launches.
 - Added independent **Combine multi-channel** controls for solo and multiplayer scoring, shown when a multi-channel desktop input is available.
