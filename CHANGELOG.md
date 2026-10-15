@@ -25,6 +25,7 @@ below.
 - Added the ability to toggle the display of romanized lyrics for CJK languages in Settings.
 - Added a **Folders** section to the sidebar for local folder libraries: it keeps the library's subfolder hierarchy, subfolders open and close with their chevron (or by selecting the folder again), and selecting a folder shows its songs and those of its subfolders.
 - Lyrics can carry a note above any word with `{word|note}` in the lyrics editor, in every language: it replaces the automatic reading (romaji, pinyin, Jyutping, romanization) of the characters it covers or adds one (e.g. `{君|kimi}`, `{行|háng}`, `{colour|color}`). For Japanese, a kana note (`{彷徨|さまよ}って`) also guides alignment.
+- Line-timed LRC can now guide alignment: the lyrics editor's new **Align words** timing keeps each line's LRC timing and has the AI time only the words inside it, so one misheard passage can no longer shift the rest of the song. Each word stays lit until the next one starts and a line stays on screen until its LRC end, unless the singing stops for a long pause.
 
 ### Improvements
 
