@@ -449,6 +449,7 @@ pub(crate) fn start_mic_capture(
     let worker_monitor_enabled = Arc::clone(&monitor_enabled);
     let worker_targets = Arc::clone(&targets);
     let worker_audio = Arc::clone(&audio);
+    let (startup_tx, startup_rx) = std::sync::mpsc::channel();
     let handle = std::thread::spawn(move || {
         run_mic_loop(
             resolved.device,
@@ -457,8 +458,20 @@ pub(crate) fn start_mic_capture(
             worker_monitor_enabled,
             worker_targets,
             worker_audio,
+            startup_tx,
         );
     });
+    match startup_rx.recv() {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => {
+            let _ = handle.join();
+            return Err(error);
+        }
+        Err(error) => {
+            let _ = handle.join();
+            return Err(format!("microphone worker failed during startup: {error}"));
+        }
+    }
 
     captures.insert(
         resolved.id,
@@ -743,11 +756,14 @@ fn run_mic_loop(
     monitor_enabled: Arc<AtomicBool>,
     targets: MicCaptureTargets,
     audio_shared: Arc<Mutex<VecDeque<f32>>>,
+    startup: std::sync::mpsc::Sender<Result<(), String>>,
 ) {
     let default_cfg = match device.default_input_config() {
         Ok(c) => c,
-        Err(e) => {
-            warn!("[mic] '{name}' config error: {e}");
+        Err(error) => {
+            let message = format!("'{name}' config error: {error}");
+            warn!("[mic] {message}");
+            let _ = startup.send(Err(message));
             return;
         }
     };
@@ -773,11 +789,16 @@ fn run_mic_loop(
         Arc::clone(&audio_shared),
         Arc::clone(&monitor_enabled),
     ) else {
-        warn!("[mic] failed to open '{name}'");
+        let message = format!("failed to open microphone '{name}'");
+        warn!("[mic] {message}");
+        let _ = startup.send(Err(message));
         return;
     };
 
     info!("[mic] active: {name}");
+    if startup.send(Ok(())).is_err() {
+        return;
+    }
 
     let sleep_dur = std::time::Duration::from_millis(4);
     let mut monitor_stream = None;

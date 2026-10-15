@@ -44,7 +44,7 @@ below.
 - Fixed the Docker image's frontend build by matching the Node 22 and pnpm 11 versions that `client/package.json` requires.
 - Whisper now falls back to CPU when CTranslate2 has no CUDA support (for example the CPU-only aarch64 wheels), instead of failing analysis.
 - Multiplayer setup now retains a remembered microphone assignment when that device is disconnected, so it can be restored when it returns.
-- Multiplayer channels on the same audio interface now share one hardware input stream, preventing duplicate device opens and buffer underruns.
+- Multiplayer channels on the same audio interface now share one hardware input stream, preventing duplicate device opens and buffer underruns while reporting stream startup failures instead of silently reusing a stopped worker.
 - Playback windows now restore their saved size and maximized state without delaying their appearance.
 - Updated desktop microphone capture to CPAL 0.18.2, which fixes Windows ASIO device enumeration and stream creation from worker threads.
 - Song details now open without re-rendering every loaded song or initializing multiplayer devices.
