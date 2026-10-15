@@ -6,7 +6,14 @@ import { loadConfig, saveConfig } from '@/bridge/config';
 import { isFullScreen as tauriIsFullScreen, setFullScreen } from '@/bridge/fullScreen';
 import { isSessionPlayback } from '@/bridge/playback-session';
 import { isTauri } from '@/bridge/runtime';
-import { minimizeWindow, triggerFrontendReady, windowImmersive } from '@/bridge/window';
+import {
+  minimizeWindow,
+  triggerFrontendReady,
+  updateWindowState,
+  windowImmersive,
+} from '@/bridge/window';
+
+const RESIZE_SETTLE_MS = 250;
 
 export function TauriAppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -58,24 +65,33 @@ function TitleBar() {
     let unlistenResize: (() => void) | undefined;
     let resizeTimer: ReturnType<typeof setTimeout> | undefined;
 
-    const sync = async () => {
+    const refreshFullscreen = async () => {
       const immersive = await windowImmersive();
       if (!disposed) {
         setFullscreen(immersive);
       }
     };
 
-    const scheduleSync = () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        void sync().catch(() => undefined);
-      }, 100);
+    const sync = async (size: { width: number; height: number }) => {
+      const [immersive, maximized] = await Promise.all([windowImmersive(), win.isMaximized()]);
+      if (disposed) {
+        return;
+      }
+      setFullscreen(immersive);
+      await updateWindowState(maximized, size.width, size.height);
     };
 
-    void sync().catch(() => undefined);
+    const scheduleSync = (size: { width: number; height: number }) => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        void sync(size).catch(() => undefined);
+      }, RESIZE_SETTLE_MS);
+    };
+
+    void refreshFullscreen().catch(() => undefined);
 
     void win
-      .onResized(scheduleSync)
+      .onResized(({ payload }) => scheduleSync(payload))
       .then((fn) => {
         if (disposed) {
           fn();

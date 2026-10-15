@@ -36,6 +36,7 @@ const nativeCommands = new Set([
   'minimize_window',
   'load_window_state',
   'track_window_state',
+  'update_window_state',
   'import_custom_background',
   'get_media_endpoint',
   'list_microphones',
