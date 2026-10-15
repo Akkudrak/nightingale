@@ -101,6 +101,11 @@ type CaptureSettings = {
 const latencyCompensation = (config: AppConfig | null): number =>
   config?.mic_latency_compensation_sec ?? DEFAULT_MIC_LATENCY_COMPENSATION_SEC;
 
+const combineMultiChannel = (config: AppConfig | null, multiplayer: boolean): boolean =>
+  multiplayer
+    ? (config?.multiplayer_combine_multi_channel ?? true)
+    : (config?.combine_multi_channel ?? true);
+
 function playerConfigs(
   players: readonly PlaybackPlayer[],
   selectedMicId: string | null,
@@ -266,7 +271,7 @@ export function PlaybackMicProvider({ config, players, children }: PlaybackMicPr
     config?.mic_monitoring ?? false,
   );
   const [selectedMicId, setSelectedMicId] = useState<string | null>(config?.preferred_mic ?? null);
-  const micDevices = useMicDevices();
+  const micDevices = useMicDevices(undefined, combineMultiChannel(config, multiplayer));
   const settings = captureSettings(
     multiplayer,
     isReady && isPlaying && !paused,

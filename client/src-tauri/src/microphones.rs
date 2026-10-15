@@ -37,6 +37,7 @@ pub(crate) struct MicrophoneInfo {
     pub id: String,
     pub name: String,
     pub host: String,
+    pub channel_count: u16,
 }
 
 /// Mono PCM frame streamed from Rust to JS. JS owns all DSP (pitch, reactive
@@ -90,7 +91,9 @@ fn audio_hosts() -> Vec<(cpal::HostId, &'static str)> {
 /// Devices retain their host-qualified IDs so identically named WASAPI, ASIO,
 /// and virtual inputs remain independently selectable.
 #[tauri::command]
-pub(crate) fn list_microphones() -> Result<Vec<MicrophoneInfo>, String> {
+pub(crate) fn list_microphones(
+    combine_channels: Option<bool>,
+) -> Result<Vec<MicrophoneInfo>, String> {
     let mut seen: HashSet<(String, String)> = HashSet::new();
     let mut out = Vec::new();
     let mut errors = Vec::new();
@@ -108,9 +111,9 @@ pub(crate) fn list_microphones() -> Result<Vec<MicrophoneInfo>, String> {
         };
 
         for device in devices {
-            if device.default_input_config().is_err() {
+            let Ok(config) = device.default_input_config() else {
                 continue;
-            }
+            };
 
             let name = device_display_name(&device);
             let raw_id = device
@@ -119,11 +122,25 @@ pub(crate) fn list_microphones() -> Result<Vec<MicrophoneInfo>, String> {
                 .unwrap_or_else(|_| name.clone());
             let host = host_name.to_string();
             if seen.insert((host.clone(), name.clone())) {
-                out.push(MicrophoneInfo {
-                    id: format!("{host_name}:{raw_id}"),
-                    name,
-                    host,
-                });
+                let id = format!("{host_name}:{raw_id}");
+                let channel_count = config.channels();
+                if combine_channels.unwrap_or(true) || config.channels() <= 1 {
+                    out.push(MicrophoneInfo {
+                        id,
+                        name,
+                        host,
+                        channel_count,
+                    });
+                } else {
+                    for channel in 1..=config.channels() {
+                        out.push(MicrophoneInfo {
+                            id: format!("{id}#channel={channel}"),
+                            name: format!("{name} (Channel {channel})"),
+                            host: host.clone(),
+                            channel_count,
+                        });
+                    }
+                }
             }
         }
     }
@@ -238,14 +255,32 @@ fn stop_internal(capture_id: &str) {
     let _ = capture.thread.join();
 }
 
-fn find_device(preferred: Option<&str>) -> Result<(cpal::Device, String), String> {
+fn selected_input_channel(preference: &str) -> (&str, Option<usize>) {
+    let Some((device_id, channel)) = preference.rsplit_once("#channel=") else {
+        return (preference, None);
+    };
+    let Some(channel) = channel
+        .parse::<usize>()
+        .ok()
+        .and_then(|channel| channel.checked_sub(1))
+    else {
+        return (preference, None);
+    };
+    (device_id, Some(channel))
+}
+
+fn find_device(preferred: Option<&str>) -> Result<(cpal::Device, String, Option<usize>), String> {
     if let Some(preference) = preferred {
+        let (device_preference, selected_channel) = selected_input_channel(preference);
         let hosts = audio_hosts();
-        let qualified_preference = preference.split_once(':').filter(|(preferred_host, _)| {
-            hosts
-                .iter()
-                .any(|(_, host_name)| host_name == preferred_host)
-        });
+        let qualified_preference =
+            device_preference
+                .split_once(':')
+                .filter(|(preferred_host, _)| {
+                    hosts
+                        .iter()
+                        .any(|(_, host_name)| host_name == preferred_host)
+                });
 
         for (host_id, host_name) in hosts {
             if qualified_preference.is_some_and(|(preferred_host, _)| preferred_host != host_name) {
@@ -265,12 +300,14 @@ fn find_device(preferred: Option<&str>) -> Result<(cpal::Device, String), String
                     .map(|id| id.to_string())
                     .unwrap_or_else(|_| display_name.clone());
                 let id_matches = qualified_preference.map_or_else(
-                    || raw_id == preference,
+                    || raw_id == device_preference,
                     |(_, preferred_id)| raw_id == preferred_id,
                 );
                 // Name matching preserves preferences saved by older versions.
-                if id_matches || (qualified_preference.is_none() && display_name == preference) {
-                    return Ok((dev, display_name));
+                if id_matches
+                    || (qualified_preference.is_none() && display_name == device_preference)
+                {
+                    return Ok((dev, display_name, selected_channel));
                 }
             }
         }
@@ -282,7 +319,7 @@ fn find_device(preferred: Option<&str>) -> Result<(cpal::Device, String), String
         .default_input_device()
         .ok_or_else(|| "No default microphone found".to_string())?;
     let name = device_display_name(&device);
-    Ok((device, name))
+    Ok((device, name, None))
 }
 
 #[tauri::command]
@@ -299,7 +336,7 @@ pub(crate) fn start_mic_capture(
     stop_internal(&capture_id);
 
     let next_options = options.unwrap_or_default();
-    let (device, name) = find_device(preferred.as_deref())?;
+    let (device, name, selected_channel) = find_device(preferred.as_deref())?;
     let shutdown = Arc::new(AtomicBool::new(false));
     let monitor_enabled = Arc::new(AtomicBool::new(next_options.emit_audio));
     let channel = Arc::new(Mutex::new(Some(on_samples)));
@@ -312,6 +349,7 @@ pub(crate) fn start_mic_capture(
         run_mic_loop(
             device,
             &name,
+            selected_channel,
             worker_shutdown,
             worker_monitor_enabled,
             worker_channel,
@@ -341,6 +379,7 @@ fn try_build_stream(
     pcm_shared: Arc<Mutex<VecDeque<f32>>>,
     audio_shared: Arc<Mutex<VecDeque<f32>>>,
     monitor_enabled: Arc<AtomicBool>,
+    selected_channel: Option<usize>,
 ) -> Option<cpal::Stream> {
     let ch = config.channels as usize;
     let push_samples: SampleSink = {
@@ -348,7 +387,8 @@ fn try_build_stream(
         let audio_cb = Arc::clone(&audio_shared);
         Arc::new(move |data: &[f32]| {
             let mut mono_samples = Vec::with_capacity(data.len() / ch.max(1));
-            let active_channel = strongest_input_channel(data, ch);
+            let active_channel =
+                selected_channel.unwrap_or_else(|| strongest_input_channel(data, ch));
             for frame in data.chunks(ch) {
                 mono_samples.push(frame.get(active_channel).copied().unwrap_or(0.0));
             }
@@ -579,6 +619,7 @@ fn drain_chunk(queue: &Mutex<VecDeque<f32>>) -> Option<Vec<f32>> {
 fn run_mic_loop(
     device: cpal::Device,
     name: &str,
+    selected_channel: Option<usize>,
     shutdown: Arc<AtomicBool>,
     monitor_enabled: Arc<AtomicBool>,
     channel: Arc<Mutex<Option<Channel<MicSampleFrame>>>>,
@@ -599,6 +640,11 @@ fn run_mic_loop(
     };
     let sr = config.sample_rate;
 
+    if selected_channel.is_some_and(|channel| channel >= config.channels as usize) {
+        warn!("[mic] requested input channel is unavailable for '{name}'");
+        return;
+    }
+
     info!(
         "[mic] opening '{name}': {sr} Hz, {}ch, {sample_format:?}",
         config.channels
@@ -613,6 +659,7 @@ fn run_mic_loop(
         Arc::clone(&pcm_shared),
         Arc::clone(&audio_shared),
         Arc::clone(&monitor_enabled),
+        selected_channel,
     ) else {
         warn!("[mic] failed to open '{name}'");
         return;

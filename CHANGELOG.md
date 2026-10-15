@@ -16,15 +16,18 @@ below.
 ### Features
 
 - Desktop and Playback windows now remember their size and whether they were maximized between launches.
+- Added independent **Combine multi-channel** controls for solo and multiplayer scoring, shown when a multi-channel desktop input is available.
 - Added custom playback backgrounds from uploaded files or HTTPS links, automatically recognizing supported static image, Nightingale GLSL shader, and silent looping video extensions.
 - Added a master volume control to Playback settings.
 - Added local multiplayer playback for two to four singers, with per-player microphone and profile selection, editable queue lineups, keyboard and gamepad navigation, live scores, and ranked results.
 - **Rescan library** now also picks up analyses that another machine left in a shared cache folder: songs already in the library whose stems and transcript exist in the cache are marked ready without re-running analysis, and a toast summarizes how many were updated.
 - The lyrics editor pre-fills from a `.lrc` / `.elrc` file next to a local song's audio when the song has no lyrics yet, and offers a **Use local .lrc** action otherwise; nothing is written until Save.
 - Added the ability to toggle the display of romanized lyrics for CJK languages in Settings.
+- Added a **Folders** section to the sidebar for local folder libraries: it keeps the library's subfolder hierarchy, subfolders open and close with their chevron (or by selecting the folder again), and selecting a folder shows its songs and those of its subfolders.
 
 ### Improvements
 
+- Albums now appear beneath expandable artists in the sidebar, while both artist and album rows remain selectable.
 - Desktop IPC and self-hosted HTTP commands now use one shared backend dispatcher, keeping command behavior and validation consistent across both runtimes.
 - Migrated library persistence from handwritten runtime SQL to Diesel's typed SQLite query builder without changing existing databases or library behavior.
 - Playback queue songs can now be reordered by dragging or with Alt+Arrow keys.
@@ -32,6 +35,10 @@ below.
 
 ### Fixes
 
+- Closing the main desktop window now exits after its native webview is destroyed, preventing a lingering event loop and WebView2 window-class cleanup errors.
+- Fixed the Docker image's frontend build by matching the Node 22 and pnpm 11 versions that `client/package.json` requires.
+- Whisper now falls back to CPU when CTranslate2 has no CUDA support (for example the CPU-only aarch64 wheels), instead of failing analysis.
+- Playback windows now restore their saved size and maximized state without delaying their appearance.
 - Updated desktop microphone capture to CPAL 0.18.2, which fixes Windows ASIO device enumeration and stream creation from worker threads.
 - Song details now open without re-rendering every loaded song or initializing multiplayer devices.
 - Song selections now remain active while searching and after clearing the search field.
@@ -39,6 +46,9 @@ below.
 - Stems, source videos, and background videos now play when the songs or videos cache has been moved to a separate folder (for example a network share): the desktop and self-hosted media servers only allowed files under the data folder and library folder, so a relocated cache failed with "Failed to fetch instrumental: 404".
 - Analysis status sorting now orders ready songs by the transcript source shown in their status badge.
 - Japanese romaji now reads kanji in sentence context (彷徨って → samayotte, 君 → kimi instead of hōkō / kun), romanizes the particles は / へ as wa / e, handles small っ across word boundaries, treats half-width spaces as word breaks (街 家 → machi ie, not machi ka), and fixes fixed words the dictionary splits or lacks (三日月, 駆く). Readings for display and alignment come from the same contextual kana.
+- Lyrics now follow the song at a changed tempo after the lyrics were edited or re-aligned: the tempo-scaled lyric timings are rebuilt when missing instead of falling back to the original-speed timings.
+- Qwen lyrics alignment no longer shifts words onto the wrong lines after a token that spans two lyric lines (金の塔 / 北の丘 aligned as "塔北").
+- Lyrics alignment no longer keeps a word highlighted through instrumental breaks or long pauses: words stretched over a vocal silence are trimmed to their sung part.
 
 ## [1.2.0] - 2026-09-02
 
