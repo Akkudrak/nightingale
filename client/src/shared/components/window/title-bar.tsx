@@ -15,7 +15,7 @@ import {
 
 export function TauriAppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    void triggerFrontendReady();
+    void triggerFrontendReady().catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export function TauriAppShell({ children }: { children: React.ReactNode }) {
         return;
       }
       event.preventDefault();
-      void toggleFullscreen();
+      void toggleFullscreen().catch(() => undefined);
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -59,43 +59,47 @@ function TitleBar() {
 
   useEffect(() => {
     const win = getCurrentWindow();
+    let disposed = false;
+    let unlistenResize: (() => void) | undefined;
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
 
-    const sync = async () => {
-      const [immersive, maximized, size] = await Promise.all([
-        windowImmersive(),
-        win.isMaximized(),
-        win.innerSize(),
-      ]);
+    const sync = async (size: { width: number; height: number }) => {
+      const [immersive, maximized] = await Promise.all([windowImmersive(), win.isMaximized()]);
+      if (disposed) {
+        return;
+      }
       setFullscreen(immersive);
       await updateWindowState(maximized, size.width, size.height);
     };
 
-    void sync();
-
-    let unlistenResize: (() => void) | undefined;
-    let unlistenFocus: (() => void) | undefined;
-
-    void win
-      .onResized(() => {
-        void sync();
-      })
-      .then((fn) => {
-        unlistenResize = fn;
-        return undefined;
-      });
+    const scheduleSync = (size: { width: number; height: number }) => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        void sync(size).catch(() => undefined);
+      }, 100);
+    };
 
     void win
-      .onFocusChanged(() => {
-        void sync();
-      })
+      .innerSize()
+      .then(sync)
+      .catch(() => undefined);
+
+    void win
+      .onResized(({ payload }) => scheduleSync(payload))
       .then((fn) => {
-        unlistenFocus = fn;
+        if (disposed) {
+          fn();
+        } else {
+          unlistenResize = fn;
+        }
         return undefined;
-      });
+      })
+      .catch(() => undefined);
 
     return () => {
+      disposed = true;
+      clearTimeout(resizeTimer);
       unlistenResize?.();
-      unlistenFocus?.();
     };
   }, []);
 
