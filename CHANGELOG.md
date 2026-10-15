@@ -24,6 +24,7 @@ below.
 - The lyrics editor pre-fills from a `.lrc` / `.elrc` file next to a local song's audio when the song has no lyrics yet, and offers a **Use local .lrc** action otherwise; nothing is written until Save.
 - Added the ability to toggle the display of romanized lyrics for CJK languages in Settings.
 - Added a **Folders** section to the sidebar for local folder libraries: it keeps the library's subfolder hierarchy, subfolders open and close with their chevron (or by selecting the folder again), and selecting a folder shows its songs and those of its subfolders.
+- Lyrics can carry a note above any word with `{word|note}` in the lyrics editor, in every language: it replaces the automatic reading (romaji, pinyin, Jyutping, romanization) of the characters it covers or adds one (e.g. `{君|kimi}`, `{行|háng}`, `{colour|color}`). For Japanese, a kana note (`{彷徨|さまよ}って`) also guides alignment.
 
 ### Improvements
 
@@ -32,6 +33,7 @@ below.
 - Migrated library persistence from handwritten runtime SQL to Diesel's typed SQLite query builder without changing existing databases or library behavior.
 - Playback queue songs can now be reordered by dragging or with Alt+Arrow keys.
 - The playback screen now shows the song's cover art, title, and artist on a loading screen while audio is still downloading/decoding, instead of a blank/shader background.
+- The lyrics editor shows the LRC timing syntax (`[mm:ss.xx]` per line, `<mm:ss.xx>` per word) under the text box.
 
 ### Fixes
 

@@ -203,7 +203,7 @@ def _tag_japanese(text: str):
         yield start, m
 
 
-def tokenize_japanese_with_reading(text: str) -> list[tuple[str, str]]:
+def tokenize_japanese_with_reading(text: str, spans=()) -> list[tuple[str, str]]:
     """Return ``[(surface, hiragana_reading), ...]`` per fugashi morpheme.
 
     The hiragana reading is the chars to feed the slplab hiragana CTC model;
@@ -212,10 +212,15 @@ def tokenize_japanese_with_reading(text: str) -> list[tuple[str, str]]:
     symbols) get an empty reading and are subsequently treated as punct by
     :func:`attribute_chars_to_tokens` / :func:`merge_punct`. Words listed in
     :data:`_JA_COMPOUND_READINGS` use their fixed reading.
+
+    ``spans`` are user notes from :func:`parse_reading_markup`; kana ones
+    replace the reading of the morphemes they cover (romaji ones can't be fed
+    to the hiragana aligner and only affect display).
     """
     if not text:
         return []
-    frags = _japanese_char_kana(text)
+    kana_spans = [span for span in spans if all(_is_kana(ch) for ch in span[2])]
+    frags = _japanese_char_kana(text, kana_spans)
     out: list[tuple[str, str]] = []
     for start, t in _tag_japanese(text):
         surface = getattr(t, "surface", None) or str(t)
@@ -257,6 +262,37 @@ _JA_NANI_FOLLOWERS = ("を", "が", "も", "に", "より")
 _JA_PARTICLE_READINGS = {"は": "わ", "へ": "え"}
 _JA_SOKUON = ("っ", "ッ")
 
+# Note typed in the lyrics editor and shown above a word: {彷徨|さまよ},
+# {君|kimi}, {行|háng}, {colour|kʌlər}.
+_READING_MARKUP_RE = re.compile(r"\{([^{}|]+)\|([^{}|]*)\}")
+
+
+def parse_reading_markup(line: str) -> tuple[str, list[tuple[int, int, str]]]:
+    """Strip ``{base|note}`` markup from a lyric line.
+
+    Returns the plain line (what is displayed and aligned) and
+    ``(start, end, note)`` spans indexing into it. In any language the note is
+    shown above the word instead of its automatic reading; for Japanese a kana
+    note also replaces the kana fed to the aligner. Markup with an empty note
+    is just unwrapped.
+    """
+    plain: list[str] = []
+    spans: list[tuple[int, int, str]] = []
+    plain_len = 0
+    last = 0
+    for m in _READING_MARKUP_RE.finditer(line):
+        before = line[last:m.start()]
+        base, note = m.group(1), m.group(2).strip()
+        plain.append(before)
+        plain_len += len(before)
+        if note:
+            spans.append((plain_len, plain_len + len(base), note))
+        plain.append(base)
+        plain_len += len(base)
+        last = m.end()
+    plain.append(line[last:])
+    return "".join(plain), spans
+
 def _compound_spans(text: str) -> list[tuple[int, int, str]]:
     """Per-character reading spans for :data:`_JA_COMPOUND_READINGS` in ``text``."""
     spans: list[tuple[int, int, str]] = []
@@ -266,6 +302,10 @@ def _compound_spans(text: str) -> list[tuple[int, int, str]]:
             spans.extend((start + j, start + j + 1, r) for j, r in enumerate(readings))
             start = text.find(word, start + len(word))
     return spans
+
+
+def _is_kana_reading(reading: str) -> bool:
+    return all(_is_kana(ch) for ch in reading)
 
 
 def _apply_reading_spans(frags: list[str], spans) -> list[str]:
@@ -294,7 +334,7 @@ def _is_kana(ch: str) -> bool:
     return 0x3040 <= ord(ch) <= 0x30FF
 
 
-def _japanese_char_kana(text: str) -> list[str]:
+def _japanese_char_kana(text: str, spans=()) -> list[str]:
     """Per-character kana for ``text``, using fugashi/UniDic readings so that
     kanji are read in sentence context (彷徨っ=さまよっ, 君=きみ) rather than
     by context-free dictionary default (ほうこう, くん).
@@ -303,7 +343,8 @@ def _japanese_char_kana(text: str) -> list[str]:
     themselves; a kanji morpheme's reading goes on its first kanji char (other
     kanji get "") while its kana prefix/okurigana stay on their own chars, so
     any slice of the list lines up with the same slice of ``text`` even when
-    display tokens split a morpheme.
+    display tokens split a morpheme. User ``spans`` (see
+    :func:`parse_reading_markup`) are applied last and win.
     """
     frags = list(text)
     tagged = list(_tag_japanese(text))
@@ -358,7 +399,7 @@ def _japanese_char_kana(text: str) -> list[str]:
                     frags[start + r_start + j] = ch
             else:
                 frags[start + r_start] = next(groups)
-    return _apply_reading_spans(frags, _compound_spans(text))
+    return _apply_reading_spans(frags, _compound_spans(text) + list(spans))
 
 
 def _char_runs(text: str, pred):
@@ -375,19 +416,20 @@ def _kana_to_romaji(kana: str) -> str:
     return "".join(c.get("hepburn", "") for c in chunks).strip()
 
 
-def _japanese_readings(words: list[str], line: str | None = None) -> list:
+def _japanese_readings(words: list[str], line: str | None = None, spans=()) -> list:
     """Hepburn romaji for consecutive display tokens of one line.
 
     The tokens are analysed within ``line`` (or, without it, joined) so
     fugashi sees the full sentence; each token then gets the romaji of its
-    own slice. A token ending in a sokuon (彷徨っ|て) gets the next token's doubled consonant
+    own slice. ``spans`` index into ``line`` and override readings. A token
+    ending in a sokuon (彷徨っ|て) gets the next token's doubled consonant
     (samayot|te) instead of pykakasi's standalone "tsu".
     """
     text = line if line is not None else "".join(words)
     try:
-        frags = _japanese_char_kana(text)
+        frags = _japanese_char_kana(text, spans)
     except Exception:
-        frags = list(text)
+        frags = _apply_reading_spans(list(text), spans)
 
     kanas: list[str] = []
     sokuon: list[bool] = []
@@ -457,7 +499,7 @@ def tokenize(text: str, lang: str) -> list[str]:
     return [text]
 
 
-def tokenize_for_alignment(text: str, lang: str) -> list[tuple[str, str]]:
+def tokenize_for_alignment(text: str, lang: str, spans=()) -> list[tuple[str, str]]:
     """Per-token ``(display_surface, alignment_chars)`` pairs.
 
     Concatenating the second element of every pair yields the full string
@@ -473,7 +515,7 @@ def tokenize_for_alignment(text: str, lang: str) -> list[tuple[str, str]]:
     if not text:
         return []
     if lang == "ja":
-        return tokenize_japanese_with_reading(text)
+        return tokenize_japanese_with_reading(text, spans)
     if lang in ("zh", "yue"):
         return [(t, clean_for_alignment(t)) for t in tokenize_chinese(text)]
     return [(text, clean_for_alignment(text))]
@@ -645,21 +687,62 @@ def merge_punct(entries: list[dict]) -> list[dict]:
     return out
 
 
-def attach_reading(entries: list[dict], lang: str, line: str | None = None) -> None:
+def attach_reading(entries: list[dict], lang: str, line: str | None = None, spans=()) -> None:
     """Attach a ``reading`` field to each entry that has displayable text.
 
     Japanese entries are read together (within ``line`` when given) so each
     token's kanji reading comes from its sentence context (see
-    :func:`_japanese_readings`)."""
+    :func:`_japanese_readings`). Other supported languages get a per-token
+    reading. In every language, ``spans`` from :func:`parse_reading_markup`
+    (indexing into ``line``) put the user's note above the words they cover."""
+    words = [e for e in entries if "word" in e]
     if lang == "ja":
-        words = [e for e in entries if "word" in e]
-        for e, r in zip(words, _japanese_readings([e["word"] for e in words], line)):
+        for e, r in zip(words, _japanese_readings([e["word"] for e in words], line, spans)):
             if r:
                 e["reading"] = r
         return
-    for e in entries:
-        if "word" not in e:
+    if is_supported_lang(lang):
+        for e in words:
+            r = reading(e["word"], lang)
+            if r:
+                e["reading"] = r
+    if spans and line is not None:
+        _apply_notes(words, line, spans, lang)
+
+
+def _apply_notes(words: list[dict], line: str, spans, lang: str) -> None:
+    """Show ``{base|note}`` notes above the words they cover.
+
+    A note replaces the automatic reading of the characters it covers and is
+    shown once, on the word where it starts; the rest of a partly covered word
+    keeps its own reading (``{行|háng}走`` inside the token 行走 -> "háng zǒu").
+    """
+    pos = 0
+    for e in words:
+        at = line.find(e["word"], pos) if e["word"] else -1
+        if at < 0:
             continue
-        r = reading(e["word"], lang)
-        if r:
-            e["reading"] = r
+        word_start, word_end = at, at + len(e["word"])
+        pos = word_end
+        hits = sorted(span for span in spans if span[0] < word_end and word_start < span[1])
+        if not hits:
+            continue
+        parts: list[str] = []
+        cursor = word_start
+        for start, end, note in hits:
+            if start > cursor:
+                parts.append(_default_reading(line[cursor:start], lang))
+            if start >= word_start:
+                parts.append(note)
+            cursor = max(cursor, end)
+        if cursor < word_end:
+            parts.append(_default_reading(line[cursor:word_end], lang))
+        text = " ".join(part for part in parts if part)
+        if text:
+            e["reading"] = text
+        else:
+            e.pop("reading", None)
+
+
+def _default_reading(text: str, lang: str) -> str:
+    return (reading(text, lang) or "") if is_supported_lang(lang) else ""
