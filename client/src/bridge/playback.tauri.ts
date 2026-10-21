@@ -19,8 +19,6 @@ export const ensurePlayableSourceVideo = async (fileHash: string): Promise<strin
   return await invoke<string | null>('ensure_playable_source_video', { fileHash });
 };
 
-/** Export an analyzed local song to a `.nge` bundle in `destDir`; resolves to
- * the absolute path of the written file. */
 export const exportSongNge = async (fileHash: string, destDir: string): Promise<string> => {
   return await invoke<string>('export_song_nge', { fileHash, destDir });
 };

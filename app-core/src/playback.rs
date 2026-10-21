@@ -61,14 +61,9 @@ impl PixabayVideoDownloaded {
 }
 
 pub fn load_transcript(file_hash: &str) -> Result<Value, NightingaleError> {
-    // `.nge` songs carry their transcript inside the bundle; read it in memory
-    // rather than from the cache (which never holds it).
     if let Some(song) = library_db::load_song_by_hash(file_hash).ok().flatten()
         && song_is_nge(&song)
     {
-        // A tempo shift writes a time-scaled variant transcript (and materializes
-        // the base) to the cache; prefer it. Otherwise read the base transcript
-        // straight from the bundle.
         let cache = CacheDir::new();
         let cached = resolve_transcript_path(&cache, file_hash);
         if cached.is_file() {
@@ -146,8 +141,6 @@ fn resolve_original_media(song: &Song, cache: &CacheDir) -> String {
     }
 }
 
-/// True when a song's canonical file is a `.nge` bundle (playback reads stems
-/// straight out of the bundle via the media server's `nge://` route).
 pub(crate) fn song_is_nge(song: &Song) -> bool {
     song.path
         .extension()
@@ -155,9 +148,6 @@ pub(crate) fn song_is_nge(song: &Song) -> bool {
         .is_some_and(|e| e.eq_ignore_ascii_case("nge"))
 }
 
-/// Resolve the `nge://<hash>/<entry>` pseudo-URLs the media server understands.
-/// Prefers the separated stems; falls back to the original mix for `no_stems`
-/// songs or bundles that never carried stems.
 fn nge_audio_paths(song: &Song, file_hash: &str) -> Option<AudioPaths> {
     let nge = crate::nge_format::NgeFile::open(&song.path).ok()?;
     let url = |entry: &str| format!("nge://{file_hash}/{entry}");
@@ -178,7 +168,6 @@ fn nge_audio_paths(song: &Song, file_hash: &str) -> Option<AudioPaths> {
         });
     }
 
-    // No stems available: play the original mix as the instrumental.
     let audio_entry = find("audio.")?;
     Some(AudioPaths {
         instrumental: url(&audio_entry),
@@ -190,8 +179,6 @@ pub fn get_audio_paths(file_hash: &str) -> AudioPaths {
     let cache = CacheDir::new();
     if let Some(song) = library_db::load_song_by_hash(file_hash).ok().flatten() {
         if song_is_nge(&song) {
-            // A key/tempo shift writes variant stems to the cache; prefer those.
-            // Otherwise stream the base stems straight from the bundle.
             let tempo = normalize_tempo(song.tempo);
             if let Some(key) = song.override_key.as_ref().or(song.key.as_ref())
                 && !is_base_original_selection(&song, key, tempo)
@@ -340,8 +327,6 @@ pub fn ensure_playable_source_video(file_hash: &str) -> Result<Option<String>, N
         return Ok(None);
     }
 
-    // `.nge` songs carry an already-playable `video.mp4` inside the bundle; the
-    // media server streams it straight out via the `nge://` route.
     if song_is_nge(&song)
         && let Ok(nge) = crate::nge_format::NgeFile::open(&song.path)
         && nge.manifest.entry("video.mp4").is_some()
@@ -505,12 +490,6 @@ fn run_rubberband_pair_parallel(
     Ok(())
 }
 
-/// For a `.nge` song, read its base stems and transcript out of the bundle
-/// into the cache under the canonical names the shift pipeline reads, so key and
-/// tempo shifting reuse the normal rubberband path unchanged. Idempotent, and a
-/// no-op for non-`.nge` songs. Note: these base files and the shifted variants
-/// are plaintext in the cache — using shift intentionally materializes stems
-/// (the original mix stays sealed in the bundle).
 fn ensure_nge_base_in_cache(song: &Song, cache: &CacheDir) -> Result<(), NightingaleError> {
     if !song_is_nge(song) {
         return Ok(());
@@ -802,8 +781,6 @@ pub fn shift_key(
             tempo: target_tempo,
         });
     }
-    // `.nge` songs keep their base stems inside the bundle; materialize them to
-    // the cache so the rubberband pipeline below works unchanged.
     ensure_nge_base_in_cache(&song, &cache)?;
 
     let canonical_target_exists = canonical_target_inst.is_file() && canonical_target_voc.is_file();
@@ -918,8 +895,6 @@ pub fn shift_tempo(file_hash: &str, tempo: f64) -> Result<ShiftResult, Nightinga
         library_db::update_song_fields(file_hash, &song).map_err(|e| e.to_string())?;
         return Ok(ShiftResult { key, tempo: 1.0 });
     }
-    // `.nge` songs keep their base stems/transcript inside the bundle;
-    // materialize them to the cache so the rubberband pipeline works unchanged.
     ensure_nge_base_in_cache(&song, &cache)?;
 
     let source_tempo = 1.0;

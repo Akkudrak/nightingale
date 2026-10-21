@@ -3,9 +3,6 @@ import type { Song } from '@/types/Song';
 
 const UNKNOWN_LANGUAGE_CODES = new Set(['un', 'und', 'unk', 'unknown']);
 
-/** A small tag matching the language badge, marking a song backed by a sealed
- * `.nge` bundle. Renders nothing for non-`.nge` songs, so call sites can drop
- * it in unconditionally next to the language code. */
 export function NgeBadge({ song }: { song: Song }) {
   if (!song.path.toLowerCase().endsWith('.nge')) {
     return null;

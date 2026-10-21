@@ -17,13 +17,6 @@ import type { Song } from '@/types/Song';
 import type { SongStatusInfo } from '../song/song-status';
 import type { ActionItemProps } from './action-item';
 
-/**
- * Export/view capabilities that depend on whether a song is a sealed `.nge`
- * bundle. Kept out of `buildActionGroups` so its branching doesn't inflate that
- * function's complexity. Export is for analyzed, local, non-`.nge` songs; the
- * read-only lyrics view is for ready `.nge` bundles (normal songs edit lyrics
- * through the analysis actions instead).
- */
 function bundleActionCaps(
   song: Song,
   status: SongStatusInfo,
@@ -116,8 +109,6 @@ export function buildActionGroups({
     groups.push(notReadyGroup);
   }
 
-  // A `.nge` is sealed (no in-place editing), but its lyrics are always
-  // viewable. Normal songs edit lyrics via the analysis actions below instead.
   if (canViewLyrics) {
     groups.push([
       {

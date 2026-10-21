@@ -34,12 +34,6 @@ const renderBody = (current: LyricsResult | null): ReactNode => {
   return <p className="text-sm text-muted-foreground">No lyrics available for this song.</p>;
 };
 
-/**
- * Read-only lyrics viewer. A `.nge` is a sealed bundle, so its lyrics can't be
- * edited in place — but they're always viewable. Lines are derived from the
- * song's transcript (read from the bundle in memory), which every analyzed song
- * carries.
- */
 export const ViewLyricsDialog = () => {
   const { mode, close } = useDialog();
   const song = viewedSong(mode);

@@ -24,7 +24,6 @@ enum MediaKind {
     Audio,
     Video,
     Usdx,
-    /// A `.nge` bundle: Nightingale's canonical library file (a ZIP).
     Nge,
 }
 

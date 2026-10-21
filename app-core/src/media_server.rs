@@ -177,9 +177,6 @@ fn handle_local_file(request: Request, path_segment: &str) {
         .map(|d| d.into_owned())
         .unwrap_or_else(|_| path_segment.to_string());
 
-    // `nge://<file_hash>/<entry>` rides through the same `/local/` route (so no
-    // CSP or frontend change is needed) but is served by reading the entry
-    // out of the song's `.nge` bundle in memory — never unpacked to disk.
     if let Some(rest) = decoded.strip_prefix("nge://") {
         match rest.split_once('/') {
             Some((file_hash, entry_name)) => serve_nge_entry(request, file_hash, entry_name),
@@ -323,15 +320,6 @@ fn serve_file(request: Request, file_path: &Path) {
     }
 }
 
-// ─── .nge bundle entries ─────────────────────────────────────────────
-//
-// Read one entry (instrumental.mp3, vocals.mp3, cover.jpg, transcript.json,
-// audio.<ext>, video.mp4, …) out of the song's `.nge` and serve it from memory.
-// The audio player fetches whole entries (`arrayBuffer()` + `decodeAudioData`),
-// so a single full-body response is exactly what it wants; `<video>` sends
-// Range requests, which we satisfy by slicing the in-memory buffer. Nothing
-// is ever unpacked to disk.
-
 fn serve_nge_entry(request: Request, file_hash: &str, entry_name: &str) {
     let Some(file_hash) = sanitize_file_hash(file_hash) else {
         let _ = request.respond(with_cors(bad_request("invalid file hash")));
@@ -380,8 +368,6 @@ fn serve_nge_entry(request: Request, file_hash: &str, entry_name: &str) {
     serve_bytes(request, data, mime);
 }
 
-/// Entry names come from our own manifest, but are URL-decoded from the
-/// request, so re-validate them against a safe charset before use.
 fn sanitize_entry_name(raw: &str) -> Option<String> {
     if raw.is_empty() || raw.len() > 64 {
         return None;
@@ -396,8 +382,6 @@ fn sanitize_entry_name(raw: &str) -> Option<String> {
     }
 }
 
-/// Serve an in-memory buffer with the same Range / header semantics as
-/// [`serve_file`], without ever touching the disk.
 fn serve_bytes(request: Request, data: Vec<u8>, mime: &str) {
     let total = data.len() as u64;
 

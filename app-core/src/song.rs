@@ -314,9 +314,6 @@ fn default_true() -> bool {
     true
 }
 
-/// The song metadata carried inside a `.nge` manifest. Mirrors the
-/// analysis-derived fields of `Song`; `build_nge_from_song` writes it on export
-/// and `build_nge_song` reads it back on import, so they must stay in sync.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct NgeSongMeta {
     pub title: String,
@@ -363,9 +360,6 @@ impl NgeSongMeta {
     }
 }
 
-/// Build a `Song` from a `.nge` bundle the scanner found in the library folder.
-/// `Song.path` points at the bundle itself — audio, stems, cover, transcript
-/// and video are all served out of it by the media server, never unpacked.
 pub(crate) fn build_nge_song(path: &Path, cache: &CacheDir) -> Result<Song, NightingaleError> {
     let nge = crate::nge_format::NgeFile::open(path)?;
     let meta: NgeSongMeta = serde_json::from_value(nge.manifest.metadata.clone())?;
@@ -377,10 +371,6 @@ pub(crate) fn build_nge_song(path: &Path, cache: &CacheDir) -> Result<Song, Nigh
         artist: meta.artist,
         album: meta.album,
         duration_secs: meta.duration_secs,
-        // Extract the cover to the content-
-        // addressed cache so every `AlbumArt` render site works unchanged. The
-        // rest (audio, stems, transcript) stays in the
-        // bundle and is only ever read in memory.
         album_art_path: extract_nge_cover(&nge, cache),
         is_analyzed: meta.is_analyzed,
         language: meta.language,
@@ -396,8 +386,6 @@ pub(crate) fn build_nge_song(path: &Path, cache: &CacheDir) -> Result<Song, Nigh
     })
 }
 
-/// Extract a bundle's cover (if any) to the content-addressed cover cache and
-/// return its path. Idempotent: skips the write when the file already exists.
 fn extract_nge_cover(nge: &crate::nge_format::NgeFile, cache: &CacheDir) -> Option<PathBuf> {
     let name = nge
         .manifest

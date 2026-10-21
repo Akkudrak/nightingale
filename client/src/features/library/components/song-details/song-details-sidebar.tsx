@@ -27,23 +27,12 @@ type SongDetailsSidebarProps = {
   onClose: () => void;
 };
 
-/**
- * Which analysis capabilities a song supports. A `.nge` is a sealed,
- * already-analyzed bundle — its artifacts live inside the bundle file, so
- * the mutating actions (reanalyze, realign, edit lyrics, key/tempo shift,
- * refresh metadata) don't apply; playback stays fully available. To edit, the
- * user re-analyzes the original source and exports a fresh bundle.
- */
 function deriveAnalysisCaps(
   song: Song,
   isReady: boolean,
   keyPending: boolean,
 ): { supportsShifts: boolean; supportsAnalysisActions: boolean } {
   if (song.path.toLowerCase().endsWith('.nge')) {
-    // A `.nge` is sealed, so analysis actions (reanalyze/realign/edit) stay
-    // hidden — but key/tempo shift is a playback transform derived from the
-    // sealed stems, so it's offered. Shifting materializes variant stems in the
-    // cache (the original bundle is untouched).
     return {
       supportsShifts: song.is_analyzed && song.transcript_source !== 'Usdx' && !keyPending,
       supportsAnalysisActions: false,
