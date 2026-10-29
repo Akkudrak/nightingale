@@ -353,10 +353,10 @@ fn serve_nge_entry(request: Request, file_hash: &str, entry_name: &str) {
         return;
     }
 
-    let data = match crate::nge_format::NgeFile::open(&song.path)
-        .and_then(|nge| nge.read_entry(&entry_name))
-    {
-        Ok(bytes) => bytes,
+    let region =
+        crate::nge_format::NgeFile::open(&song.path).and_then(|nge| nge.entry_region(&entry_name));
+    let (offset, length) = match region {
+        Ok(region) => region,
         Err(e) => {
             warn!("[media_server] nge read failed for {file_hash}/{entry_name}: {e}");
             let _ = request.respond(with_cors(server_error("nge read")));
@@ -365,7 +365,7 @@ fn serve_nge_entry(request: Request, file_hash: &str, entry_name: &str) {
     };
 
     let mime = mime_for_path(Path::new(&entry_name));
-    serve_bytes(request, data, mime);
+    serve_file_region(request, &song.path, offset, length, mime);
 }
 
 fn sanitize_entry_name(raw: &str) -> Option<String> {
@@ -382,46 +382,62 @@ fn sanitize_entry_name(raw: &str) -> Option<String> {
     }
 }
 
-fn serve_bytes(request: Request, data: Vec<u8>, mime: &str) {
-    let total = data.len() as u64;
-
-    let Some(content_type) = header("Content-Type", mime) else {
-        let _ = request.respond(with_cors(server_error("content type")));
+fn serve_file_region(request: Request, path: &Path, offset: u64, total: u64, mime: &str) {
+    let range = request_header(&request, "Range")
+        .as_deref()
+        .and_then(|value| parse_range(value, total));
+    let (status, start, end, length) = match range {
+        Some((start, end)) => (StatusCode(206), start, Some(end), end - start + 1),
+        None => (StatusCode(200), 0, None, total),
+    };
+    let Some(position) = offset.checked_add(start) else {
+        let _ = request.respond(with_cors(server_error("nge range")));
         return;
     };
-    let Some(accept_ranges) = header("Accept-Ranges", "bytes") else {
-        let _ = request.respond(with_cors(server_error("accept ranges")));
-        return;
-    };
-    let Some(no_sniff) = header("X-Content-Type-Options", "nosniff") else {
-        let _ = request.respond(with_cors(server_error("content options")));
+    let Ok(data_length) = usize::try_from(length) else {
+        let _ = request.respond(with_cors(server_error("nge length")));
         return;
     };
 
-    let range_val = request_header(&request, "Range");
+    let mut file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(_) => {
+            let _ = request.respond(with_cors(not_found("song not found")));
+            return;
+        }
+    };
+    if file.seek(SeekFrom::Start(position)).is_err() {
+        let _ = request.respond(with_cors(server_error("nge seek")));
+        return;
+    }
 
-    if let Some((start, end)) = range_val.as_deref().and_then(|r| parse_range(r, total)) {
-        let slice = data[start as usize..=end as usize].to_vec();
+    let mut response = Response::new(
+        status,
+        Vec::new(),
+        file.take(length),
+        Some(data_length),
+        None,
+    );
+    for (name, value) in [
+        ("Content-Type", mime),
+        ("Accept-Ranges", "bytes"),
+        ("X-Content-Type-Options", "nosniff"),
+    ] {
+        let Some(value) = header(name, value) else {
+            let _ = request.respond(with_cors(server_error("nge headers")));
+            return;
+        };
+        response.add_header(value);
+    }
+    if let Some(end) = end {
         let Some(content_range) = header("Content-Range", format!("bytes {start}-{end}/{total}"))
         else {
             let _ = request.respond(with_cors(server_error("content range")));
             return;
         };
-        let resp = Response::from_data(slice)
-            .with_status_code(StatusCode(206))
-            .with_header(content_type)
-            .with_header(accept_ranges)
-            .with_header(no_sniff)
-            .with_header(content_range);
-        let _ = request.respond(with_cors(resp));
-        return;
+        response.add_header(content_range);
     }
-
-    let resp = Response::from_data(data)
-        .with_header(content_type)
-        .with_header(accept_ranges)
-        .with_header(no_sniff);
-    let _ = request.respond(with_cors(resp));
+    let _ = request.respond(with_cors(response));
 }
 
 fn mime_for_path(path: &Path) -> &'static str {
@@ -448,6 +464,10 @@ fn mime_for_path(path: &Path) -> &'static str {
 }
 
 fn parse_range(range_header: &str, file_len: u64) -> Option<(u64, u64)> {
+    if file_len == 0 {
+        return None;
+    }
+
     let spec = range_header.strip_prefix("bytes=")?;
     let mut parts = spec.splitn(2, '-');
     let start_str = parts.next().unwrap_or("");
@@ -455,15 +475,15 @@ fn parse_range(range_header: &str, file_len: u64) -> Option<(u64, u64)> {
 
     if start_str.is_empty() {
         let suffix: u64 = end_str.parse().ok()?;
-        Some((file_len.saturating_sub(suffix), file_len.saturating_sub(1)))
+        (suffix > 0).then(|| (file_len.saturating_sub(suffix), file_len - 1))
     } else {
         let start: u64 = start_str.parse().ok()?;
         let end = if end_str.is_empty() {
-            file_len.saturating_sub(1)
+            file_len - 1
         } else {
-            end_str.parse::<u64>().ok()?.min(file_len.saturating_sub(1))
+            end_str.parse::<u64>().ok()?.min(file_len - 1)
         };
-        Some((start, end))
+        (start <= end).then_some((start, end))
     }
 }
 

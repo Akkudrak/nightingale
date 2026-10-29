@@ -362,11 +362,47 @@ impl NgeSongMeta {
 
 pub(crate) fn build_nge_song(path: &Path, cache: &CacheDir) -> Result<Song, NightingaleError> {
     let nge = crate::nge_format::NgeFile::open(path)?;
+    nge.validate()?;
     let meta: NgeSongMeta = serde_json::from_value(nge.manifest.metadata.clone())?;
+    let entry_count = |prefix: &str| {
+        nge.manifest
+            .entries
+            .iter()
+            .filter(|entry| entry.name.starts_with(prefix))
+            .count()
+    };
+
+    if !meta.duration_secs.is_finite()
+        || meta.duration_secs < 0.0
+        || !meta.tempo.is_finite()
+        || meta.tempo != 1.0
+        || meta.override_key.is_some()
+        || meta.key_offset != 0
+    {
+        return Err(NightingaleError::Other(
+            "nge: invalid base song metadata".into(),
+        ));
+    }
+    if (meta.no_stems && entry_count("audio.") != 1)
+        || (!meta.no_stems && (entry_count("instrumental.") != 1 || entry_count("vocals.") != 1))
+    {
+        return Err(NightingaleError::Other(
+            "nge: audio entries do not match the metadata".into(),
+        ));
+    }
+    if meta.is_video && nge.manifest.entry("video.mp4").is_none() {
+        return Err(NightingaleError::Other(
+            "nge: video metadata requires video.mp4".into(),
+        ));
+    }
+    if meta.is_analyzed {
+        let transcript = nge.read_entry("transcript.json")?;
+        serde_json::from_slice::<serde_json::Value>(&transcript)?;
+    }
 
     Ok(Song {
         path: path.to_path_buf(),
-        file_hash: nge.manifest.file_hash.clone(),
+        file_hash: compute_file_hash(path)?,
         title: meta.title,
         artist: meta.artist,
         album: meta.album,

@@ -490,6 +490,21 @@ fn run_rubberband_pair_parallel(
     Ok(())
 }
 
+fn extract_nge_entry(
+    nge: &crate::nge_format::NgeFile,
+    name: &str,
+    path: &Path,
+) -> Result<(), NightingaleError> {
+    let temporary = path.with_extension("part");
+    let result = nge
+        .copy_entry(name, std::fs::File::create(&temporary)?)
+        .and_then(|()| std::fs::rename(&temporary, path).map_err(NightingaleError::from));
+    if result.is_err() {
+        let _ = std::fs::remove_file(temporary);
+    }
+    result
+}
+
 fn ensure_nge_base_in_cache(song: &Song, cache: &CacheDir) -> Result<(), NightingaleError> {
     if !song_is_nge(song) {
         return Ok(());
@@ -516,13 +531,13 @@ fn ensure_nge_base_in_cache(song: &Song, cache: &CacheDir) -> Result<(), Nightin
         ));
     };
     if !inst.is_file() {
-        std::fs::write(&inst, nge.read_entry(&inst_entry)?)?;
+        extract_nge_entry(&nge, &inst_entry, &inst)?;
     }
     if !voc.is_file() {
-        std::fs::write(&voc, nge.read_entry(&voc_entry)?)?;
+        extract_nge_entry(&nge, &voc_entry, &voc)?;
     }
     if !transcript.is_file() && nge.manifest.entry("transcript.json").is_some() {
-        std::fs::write(&transcript, nge.read_entry("transcript.json")?)?;
+        extract_nge_entry(&nge, "transcript.json", &transcript)?;
     }
     Ok(())
 }
@@ -667,7 +682,7 @@ pub fn ensure_mp3_stems(file_hash: &str) -> Result<(), NightingaleError> {
     let cache = CacheDir::new();
 
     if let Some(song) = library_db::load_song_by_hash(file_hash).ok().flatten() {
-        if song.usdx.is_some() {
+        if song.usdx.is_some() || song_is_nge(&song) {
             return Ok(());
         }
         // LRC-provided songs without separation have no stems to convert; they

@@ -1,23 +1,13 @@
 use std::path::{Path, PathBuf};
 
-use crate::cache::{CacheDir, normalize_tempo};
+use crate::cache::CacheDir;
 use crate::error::NightingaleError;
 use crate::library_db;
-use crate::nge_format::build_nge;
-use crate::song::{NgeSongMeta, Song, SongOrigin};
+use crate::nge_format::write_nge;
+use crate::song::{NgeSongMeta, Song, SongOrigin, compute_file_hash};
 
 fn resolve_stem_files(song: &Song, cache: &CacheDir) -> Option<(PathBuf, PathBuf)> {
     let hash = &song.file_hash;
-    let tempo = normalize_tempo(song.tempo);
-
-    if let Some(key) = song.override_key.as_deref().or(song.key.as_deref()) {
-        let vi = cache.variant_instrumental_path(hash, key, tempo);
-        let vv = cache.variant_vocals_path(hash, key, tempo);
-        if vi.is_file() && vv.is_file() {
-            return Some((vi, vv));
-        }
-    }
-
     let i = cache.instrumental_path(hash);
     let v = cache.vocals_path(hash);
     if i.is_file() && v.is_file() {
@@ -42,7 +32,7 @@ fn stem_entry_name(base: &str, path: &Path) -> String {
     format!("{base}.{ext}")
 }
 
-fn build_nge_from_song(song: &Song, cache: &CacheDir) -> Result<Vec<u8>, NightingaleError> {
+fn nge_entries(song: &Song, cache: &CacheDir) -> Result<Vec<(String, PathBuf)>, NightingaleError> {
     if !matches!(song.origin, SongOrigin::LocalFile) {
         return Err(NightingaleError::Other(
             "only local songs can be exported to .nge".into(),
@@ -50,68 +40,70 @@ fn build_nge_from_song(song: &Song, cache: &CacheDir) -> Result<Vec<u8>, Nightin
     }
 
     let hash = &song.file_hash;
-    let mut entries: Vec<(String, Vec<u8>)> = Vec::new();
+    let mut entries = Vec::new();
 
-    if let Some((inst, voc)) = resolve_stem_files(song, cache) {
-        entries.push((
-            stem_entry_name("instrumental", &inst),
-            std::fs::read(&inst)?,
-        ));
-        entries.push((stem_entry_name("vocals", &voc), std::fs::read(&voc)?));
-    } else {
-        let audio_bytes = std::fs::read(&song.path)?;
-        let got = blake3::hash(&audio_bytes).to_hex()[..32].to_string();
-        if got != song.file_hash {
+    if song.no_stems {
+        if compute_file_hash(&song.path)? != song.file_hash {
             return Err(NightingaleError::Other(
                 "audio file hash does not match the library record".into(),
             ));
         }
-        entries.push((stem_entry_name("audio", &song.path), audio_bytes));
+        entries.push((stem_entry_name("audio", &song.path), song.path.clone()));
+    } else if let Some((inst, voc)) = resolve_stem_files(song, cache) {
+        entries.push((stem_entry_name("instrumental", &inst), inst));
+        entries.push((stem_entry_name("vocals", &voc), voc));
+    } else {
+        return Err(NightingaleError::Other(
+            "original stems are missing; re-analyze before creating a bundle".into(),
+        ));
     }
 
     if let Some(cover) = song.album_art_path.as_ref()
         && cover.is_file()
     {
-        entries.push(("cover.jpg".to_string(), std::fs::read(cover)?));
+        entries.push(("cover.jpg".to_string(), cover.clone()));
     }
 
-    let transcript = cache.transcript_path(hash);
-    if transcript.is_file() {
-        entries.push(("transcript.json".to_string(), std::fs::read(&transcript)?));
+    for (name, path) in [
+        ("transcript.json", cache.transcript_path(hash)),
+        ("lyrics.json", cache.lyrics_path(hash)),
+        ("video.mp4", cache.playable_video_path(hash)),
+    ] {
+        if path.is_file() {
+            entries.push((name.to_string(), path));
+        }
     }
-
-    let lyrics = cache.lyrics_path(hash);
-    if lyrics.is_file() {
-        entries.push(("lyrics.json".to_string(), std::fs::read(&lyrics)?));
-    }
-
-    let video = cache.playable_video_path(hash);
-    if video.is_file() {
-        entries.push(("video.mp4".to_string(), std::fs::read(&video)?));
-    }
-
-    let metadata = serde_json::to_value(NgeSongMeta::from_song(song))?;
-    build_nge(hash, metadata, &entries)
+    Ok(entries)
 }
 
 pub fn export_song_nge(file_hash: &str, dest_dir: &Path) -> Result<PathBuf, NightingaleError> {
     let song = library_db::load_song_by_hash(file_hash)?
         .ok_or_else(|| NightingaleError::Other("song not found".into()))?;
     let cache = CacheDir::new();
-    let bytes = build_nge_from_song(&song, &cache)?;
+    let entries = nge_entries(&song, &cache)?;
+    let mut metadata = NgeSongMeta::from_song(&song);
+    metadata.override_key = None;
+    metadata.tempo = 1.0;
+    metadata.key_offset = 0;
+    let metadata = serde_json::to_value(metadata)?;
 
     std::fs::create_dir_all(dest_dir)?;
     let path = dest_dir.join(format!("{}.nge", slug_name(&song.title, &song.artist)));
-    std::fs::write(&path, &bytes)?;
-    Ok(path)
+    let temporary = path.with_extension("nge.part");
+    let result = write_nge(&temporary, file_hash, metadata, &entries)
+        .and_then(|()| std::fs::rename(&temporary, &path).map_err(NightingaleError::from));
+    if result.is_err() {
+        let _ = std::fs::remove_file(temporary);
+    }
+    result.map(|()| path)
 }
 
 fn kebab(field: &str) -> String {
     let mut out = String::new();
     let mut prev_dash = false;
     for ch in field.chars() {
-        if ch.is_ascii_alphanumeric() {
-            out.push(ch.to_ascii_lowercase());
+        if ch.is_alphanumeric() {
+            out.extend(ch.to_lowercase());
             prev_dash = false;
         } else if !prev_dash {
             out.push('-');

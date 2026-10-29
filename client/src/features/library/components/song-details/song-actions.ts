@@ -225,7 +225,7 @@ export function buildActionGroups({
       {
         icon: PackageIcon,
         title: 'Export (.nge)',
-        description: 'Save a shareable bundle of this song.',
+        description: 'Create a single-file bundle of this song.',
         onClick: onExport,
       },
     ]);
