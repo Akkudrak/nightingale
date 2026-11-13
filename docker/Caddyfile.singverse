@@ -1,0 +1,17 @@
+# HTTPS in front of the SingVerse karaoke screen (docker/compose.singverse.yaml).
+# Caddy gets and renews the certificate for KARAOKE_DOMAIN on its own.
+
+{$KARAOKE_DOMAIN} {
+	encode zstd gzip
+
+	# WebSockets (/ws) and range requests for the song stems pass straight through.
+	reverse_proxy nightingale:8080
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		# The screen uses the microphone itself; nothing else gets it.
+		Permissions-Policy "microphone=(self), camera=()"
+	}
+}

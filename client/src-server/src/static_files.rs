@@ -22,7 +22,7 @@ pub(crate) async fn handle(request: Request<Body>) -> Response<Body> {
     serve_path(&uri).unwrap_or_else(serve_index)
 }
 
-fn serve_path(uri: &Uri) -> Option<Response<Body>> {
+pub(crate) fn serve_path(uri: &Uri) -> Option<Response<Body>> {
     let path = uri.path().trim_start_matches('/');
     if path.is_empty() {
         return None;
@@ -31,7 +31,7 @@ fn serve_path(uri: &Uri) -> Option<Response<Body>> {
     Some(asset_to_response(path, asset))
 }
 
-fn serve_index() -> Response<Body> {
+pub(crate) fn serve_index() -> Response<Body> {
     match StaticAssets::get("index.html") {
         Some(asset) => asset_to_response("index.html", asset),
         None => response(

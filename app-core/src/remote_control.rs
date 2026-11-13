@@ -127,7 +127,7 @@ pub fn lan_ip() -> Option<IpAddr> {
     (!address.is_loopback() && !address.is_unspecified()).then_some(address)
 }
 
-fn qr_svg(data: &str) -> Result<String, String> {
+pub(crate) fn qr_svg(data: &str) -> Result<String, String> {
     let code = qrcode::QrCode::new(data.as_bytes()).map_err(|error| error.to_string())?;
     let colors = code.to_colors();
     let width = code.width() as i64;

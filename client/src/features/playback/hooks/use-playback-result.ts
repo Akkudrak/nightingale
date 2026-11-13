@@ -17,6 +17,7 @@ import {
   usePlaybackTransportState,
 } from '@/features/playback/providers';
 import { useProfiles } from '@/features/profiles/queries/use-profiles';
+import { useRoomPlayback } from '@/features/singverse-room/room-playback-context';
 import { t } from '@/i18n';
 import { useLatestRef } from '@/shared/hooks/use-latest-ref';
 import { defaultPlayerColor, type PlayerColor } from '@/shared/player-colors';
@@ -57,6 +58,15 @@ function buildFinalResults(input: FinalResultsInput): PlaybackPlayerResult[] {
   }));
 }
 
+/** Results always show for multiplayer and queues; solo only when something was sung. */
+function shouldShowResults(
+  multiplayer: boolean,
+  queuePlayback: boolean,
+  results: PlaybackPlayerResult[],
+): boolean {
+  return multiplayer || queuePlayback || results.some((result) => result.score > 0);
+}
+
 function finishReady(
   isFinished: boolean,
   skipOutroPending: boolean,
@@ -81,6 +91,7 @@ export function usePlaybackResult(
   players: readonly PlaybackPlayer[],
 ): PlaybackResult {
   const fileHash = song.file_hash;
+  const room = useRoomPlayback();
   const queryClient = useQueryClient();
   const { data: profileData, isLoading: profilesLoading } = useProfiles();
   const { data: entries = [] } = usePlaybackQueueQuery();
@@ -97,6 +108,8 @@ export function usePlaybackResult(
   const micPlayersRef = useLatestRef(micPlayers);
   const scoreRef = useLatestRef(rawScore);
   const finishHandledRef = useRef(false);
+  // In a SingVerse room the singer is the room's, and the score is reported to the room.
+  const activeProfile = room === null ? (profileData?.active ?? null) : room.singer;
 
   useEffect(() => {
     if (!finishReady(isFinished, skipOutroPending, profilesLoading, finishHandledRef.current)) {
@@ -109,13 +122,19 @@ export function usePlaybackResult(
     const finalResults = buildFinalResults({
       multiplayer,
       players: micPlayersRef.current,
-      activeProfile: profileData?.active ?? null,
+      activeProfile,
       soloScore: scoreRef.current,
     });
-    const shouldShowResult =
-      multiplayer || queuePlayback || finalResults.some((result) => result.score > 0);
 
-    if (!shouldShowResult) {
+    // A SingVerse room saves the score on the singer's SingVerse profile instead.
+    if (room !== null) {
+      room.onFinished(finalResults[0].score);
+      setResults(finalResults);
+      setShowResult(true);
+      return;
+    }
+
+    if (!shouldShowResults(multiplayer, queuePlayback, finalResults)) {
       handleExit();
       return;
     }
@@ -147,10 +166,11 @@ export function usePlaybackResult(
     isFinished,
     micPlayersRef,
     multiplayer,
-    profileData?.active,
+    activeProfile,
     profilesLoading,
     queryClient,
     queuePlayback,
+    room,
     scoreRef,
     skipOutroPending,
   ]);
@@ -178,6 +198,18 @@ export function usePlaybackResult(
     [playNext, players],
   );
   const hasNext = queuePlayback && entries.length > 0;
+
+  if (room !== null) {
+    // The room's lobby introduces the next singer: "next" just leaves this song.
+    return {
+      open: showResult,
+      results,
+      scores: [],
+      nextPending: false,
+      onBack,
+      onNext: onBack,
+    };
+  }
 
   return {
     open: showResult,

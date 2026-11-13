@@ -37,9 +37,9 @@ impl ResolvedPath {
 
 #[derive(Deserialize)]
 pub(crate) struct AssetQuery {
-    path: String,
+    pub(crate) path: String,
     #[serde(default)]
-    download: bool,
+    pub(crate) download: bool,
 }
 
 /// Path-keyed route for regular media files and virtual entries inside `.nge`

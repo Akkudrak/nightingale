@@ -28,6 +28,7 @@ import {
   type TimeSubscriber,
   useAudioPlayer,
 } from '@/features/playback/hooks/use-audio-player';
+import { useRoomPlayback } from '@/features/singverse-room/room-playback-context';
 import { t } from '@/i18n';
 
 export type PlaybackTransportState = {
@@ -74,6 +75,7 @@ export function PlaybackTransportProvider({
   children,
 }: PlaybackTransportProviderProps) {
   const navigate = useNavigate();
+  const room = useRoomPlayback();
   // Snapshot the initial guide volume so changing config later doesn't
   // re-instantiate the audio engine via useAudioPlayer's effect deps.
   const [initialGuideVolumeSnapshot] = useState(initialGuideVolume);
@@ -130,9 +132,13 @@ export function PlaybackTransportProvider({
   useEffect(() => {
     if (typeof audio.error === 'string' && audio.error !== '') {
       toast.error(audio.error);
+      if (room) {
+        room.onExit();
+        return;
+      }
       void navigate('/', { replace: true });
     }
-  }, [audio.error, navigate]);
+  }, [audio.error, navigate, room]);
 
   const handlePause = useCallback(() => {
     audio.pause();
@@ -146,12 +152,16 @@ export function PlaybackTransportProvider({
 
   const handleExit = useCallback(() => {
     audio.cleanup();
+    if (room) {
+      room.onExit();
+      return;
+    }
     if (isSessionPlayback()) {
       void closePlaybackWindow();
       return;
     }
     void navigate('/', { replace: true });
-  }, [audio, navigate]);
+  }, [audio, navigate, room]);
 
   const stateValue = useMemo<PlaybackTransportState>(
     () => ({

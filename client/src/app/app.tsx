@@ -12,6 +12,7 @@ import { MenuFocusProvider } from '@/features/menu/providers/menu-focus-context'
 import { Playback } from '@/features/playback/playback';
 import { RemoteQueuePage } from '@/features/remote/remote-queue';
 import { SettingsPage } from '@/features/settings/settings';
+import { RoomPage } from '@/features/singverse-room/room-page';
 import { useUpdate } from '@/features/updates/queries/use-update';
 import { syncLanguagePreference, useTranslation } from '@/i18n';
 import { Toaster } from '@/shared/components/ui/sonner';
@@ -47,6 +48,8 @@ const InnerWrapper = () => (
             <Route path="settings" element={<SettingsPage />} />
           </Route>
           <Route path="/playback" element={<Playback />} />
+          {/* SingVerse karaoke rooms: the server only serves this page in SingVerse mode. */}
+          <Route path="/room/:roomId" element={<RoomPage />} />
         </Routes>
       </BrowserRouter>
     </MenuFocusProvider>

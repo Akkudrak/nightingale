@@ -1,0 +1,58 @@
+# Nightingale as the screen of SingVerse karaoke rooms (see SINGVERSE.md).
+#
+#   cp docker/singverse.env.example docker/singverse.env   # fill it in
+#   docker compose -f docker/compose.singverse.yaml --env-file docker/singverse.env up -d --build
+#
+# Only the playback screen is served: no analyzer (nothing ML is downloaded, no
+# GPU), no library management, no LAN phone remote. Songs are SingVerse's
+# pre-analyzed .nge bundles, downloaded on demand into the `songs` volume.
+#
+# Caddy terminates HTTPS with a Let's Encrypt certificate for KARAOKE_DOMAIN:
+# browsers only give the microphone (pitch scoring) to secure pages. Point the
+# domain's DNS A/AAAA record at this VPS and open ports 80 and 443.
+
+services:
+  nightingale:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: nightingale-singverse:latest
+    container_name: nightingale-singverse
+    restart: unless-stopped
+    environment:
+      # SingVerse's public URL and the secret shared with its NIGHTINGALE_SECRET.
+      SINGVERSE_URL: ${SINGVERSE_URL:?set SINGVERSE_URL}
+      SINGVERSE_SECRET: ${SINGVERSE_SECRET:?set SINGVERSE_SECRET}
+      # Disk kept for downloaded songs (least recently sung are deleted first).
+      SINGVERSE_CACHE_MB: ${SINGVERSE_CACHE_MB:-4096}
+      NIGHTINGALE_LIBRARY_PATH: /songs
+      RUST_LOG: ${RUST_LOG:-info,server=info}
+    volumes:
+      - nightingale-data:/data
+      - nightingale-songs:/songs
+    # Only Caddy talks to it.
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2.8
+    container_name: nightingale-caddy
+    restart: unless-stopped
+    environment:
+      KARAOKE_DOMAIN: ${KARAOKE_DOMAIN:?set KARAOKE_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile.singverse:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - nightingale
+
+volumes:
+  nightingale-data:
+  nightingale-songs:
+  caddy-data:
+  caddy-config:

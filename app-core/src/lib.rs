@@ -17,6 +17,7 @@ mod profile;
 mod remote_control;
 mod scanner;
 mod secret;
+pub mod singverse;
 mod song;
 mod song_export;
 mod source;

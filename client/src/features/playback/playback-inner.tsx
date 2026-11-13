@@ -47,6 +47,7 @@ import {
 } from '@/features/playback/providers';
 import { usePlaybackStartupState } from '@/features/playback/providers/playback-startup-context';
 import { findCurrentSegment } from '@/features/playback/utils/lyrics-gap';
+import { useRoomPlayback } from '@/features/singverse-room/room-playback-context';
 import { t } from '@/i18n';
 import type { AppConfig } from '@/types/AppConfig';
 import type { Song } from '@/types/Song';
@@ -107,6 +108,7 @@ function PlaybackLayout({
   const hudPosition = lyricsVerticalPosition === 'top' ? 'bottom' : 'top';
   const sessionWindowControls = sessionPlayback && isTauri;
 
+  const room = useRoomPlayback();
   const result = usePlaybackResult(song, queuePlayback, players ?? []);
   usePlaybackInput(config, !result.open);
 
@@ -261,7 +263,7 @@ function PlaybackLayout({
         scores={result.scores}
         nextPending={result.nextPending}
         exitLabel={t(playbackExitLabelKey(status))}
-        autoContinue={config?.auto_continue_queue === true}
+        autoContinue={room !== null || config?.auto_continue_queue === true}
         onAutoContinueChange={(next) => persistConfig({ auto_continue_queue: next })}
         onBack={result.onBack}
         onNext={result.onNext}

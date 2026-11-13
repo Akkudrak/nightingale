@@ -67,6 +67,26 @@ async fn main() -> Result<(), String> {
         pin_folder_library(library);
     }
 
+    // SingVerse karaoke-room mode: the analyzer stays off and only the playback
+    // screen is served (see `server::singverse`).
+    let singverse = match server::singverse::SingVerseConfig::from_env(library) {
+        Ok(Some(config)) => {
+            disable_analysis();
+            match server::singverse::SingVerse::new(config) {
+                Ok(singverse) => Some(singverse),
+                Err(e) => {
+                    tracing::error!("SingVerse mode: {e}");
+                    std::process::exit(1);
+                }
+            }
+        }
+        Ok(None) => None,
+        Err(e) => {
+            tracing::error!("SingVerse mode: {e}");
+            std::process::exit(1);
+        }
+    };
+
     let events = Arc::new(EventBus::new());
     let commands = app_api::CommandState::new(events.clone());
     let state = AppState::new(
@@ -77,6 +97,13 @@ async fn main() -> Result<(), String> {
         data.is_some(),
         library.is_some(),
     );
+    let state = match singverse {
+        Some(singverse) => {
+            tracing::info!("SingVerse karaoke-room mode");
+            state.with_singverse(singverse)
+        }
+        None => state,
+    };
 
     let app = server::router(state);
 
@@ -129,6 +156,15 @@ fn pin_folder_library(path: &str) {
         "pinned library to folder from NIGHTINGALE_LIBRARY_PATH"
     );
     app_core::start_scan();
+}
+
+/// Rooms only play pre-analyzed `.nge` bundles: never queue analysis jobs.
+fn disable_analysis() {
+    let mut config = app_core::AppConfig::load();
+    if config.auto_analyze != Some(false) {
+        config.auto_analyze = Some(false);
+        config.save();
+    }
 }
 
 fn dotenvy_quiet() -> std::io::Result<()> {

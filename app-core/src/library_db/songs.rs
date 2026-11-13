@@ -112,7 +112,7 @@ pub(crate) fn load_song_path_strings() -> Result<HashSet<String>, NightingaleErr
     })
 }
 
-pub(super) fn append_songs(input: &[Song]) -> Result<(), NightingaleError> {
+pub(crate) fn append_songs(input: &[Song]) -> Result<(), NightingaleError> {
     if input.is_empty() {
         return Ok(());
     }

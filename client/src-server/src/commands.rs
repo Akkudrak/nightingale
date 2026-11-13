@@ -12,6 +12,12 @@ use crate::state::AppState;
 
 pub(crate) struct ApiError(CommandError);
 
+impl From<CommandError> for ApiError {
+    fn from(error: CommandError) -> Self {
+        Self(error)
+    }
+}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status =

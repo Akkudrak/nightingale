@@ -46,6 +46,8 @@ pub struct AppState {
     address: RemoteAddress,
     pub data_path_pinned: bool,
     pub library_pinned: bool,
+    /// SingVerse karaoke-room mode (see [`crate::singverse`]); `None` runs plain Nightingale.
+    pub(crate) singverse: Option<Arc<crate::singverse::SingVerse>>,
 }
 
 impl AppState {
@@ -68,7 +70,14 @@ impl AppState {
             address,
             data_path_pinned,
             library_pinned,
+            singverse: None,
         }
+    }
+
+    /// Switches this server into SingVerse karaoke-room mode.
+    pub fn with_singverse(mut self, singverse: crate::singverse::SingVerse) -> Self {
+        self.singverse = Some(Arc::new(singverse));
+        self
     }
 
     pub fn remote_token(&self) -> String {

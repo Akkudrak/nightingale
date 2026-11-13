@@ -5,6 +5,7 @@ mod events;
 mod jukebox;
 mod media;
 mod remote;
+pub mod singverse;
 mod state;
 mod static_files;
 mod ws;
@@ -25,6 +26,10 @@ use axum::{
 /// (LAN) surface built in [`remote_router`], so no phone can reach `/api/cmd`
 /// for commands the queue page does not need.
 pub fn router(state: AppState) -> Router {
+    if state.singverse.is_some() {
+        return singverse::router(state);
+    }
+
     let body_limit = app_core::MAX_BACKGROUND_UPLOAD_BYTES as usize + 64 * 1024;
 
     Router::new()
