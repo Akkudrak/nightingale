@@ -33,7 +33,16 @@ phones ──(SingVerse session)──► SingVerse ◄──(signed API, polled
 
 Outside SingVerse mode (when `SINGVERSE_URL` is not set), the server behaves exactly like upstream Nightingale.
 
-## Running it (Docker)
+## Running it with Dokploy
+
+Dokploy's Traefik already handles HTTPS, so use `docker/compose.dokploy.yaml` (no Caddy):
+
+1. Create a **Compose** service from this repository, branch `singverse`, compose path `./docker/compose.dokploy.yaml`.
+2. Under **Environment**, set `SINGVERSE_URL` and `SINGVERSE_SECRET` (and optionally `SINGVERSE_CACHE_MB`).
+3. Under **Domains**, add the karaoke domain for service `nightingale`, container port `8080`, HTTPS with Let's Encrypt. Point the domain's DNS at the server first.
+4. Deploy. The first build compiles Rust and takes several minutes.
+
+## Running it (Docker + Caddy, without Dokploy)
 
 ```sh
 cp docker/singverse.env.example docker/singverse.env   # fill it in
@@ -51,7 +60,7 @@ NIGHTINGALE_SECRET=<the same SINGVERSE_SECRET>
 |---|---|
 | `SINGVERSE_URL` | SingVerse's public URL. Setting it turns SingVerse mode on. |
 | `SINGVERSE_SECRET` | Shared with SingVerse's `NIGHTINGALE_SECRET`. Must be at least 32 characters. |
-| `NIGHTINGALE_LIBRARY_PATH` | Where downloaded songs live. Required in SingVerse mode (`/songs` in the image). |
+| `NIGHTINGALE_LIBRARY_PATH` | Where downloaded songs live. Required in SingVerse mode (`/data/songs` in the compose files, inside the data volume the non-root user owns). |
 | `SINGVERSE_CACHE_MB` | Disk cap for downloaded songs. Default 4096. |
 | `SINGVERSE_INSECURE_COOKIES=1` | Only for local plain-HTTP testing: drops the cookie's `Secure` flag. |
 

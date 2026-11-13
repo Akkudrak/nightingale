@@ -1,0 +1,31 @@
+# Nightingale as the screen of SingVerse karaoke rooms, deployed with Dokploy
+# (see SINGVERSE.md). Dokploy's Traefik terminates HTTPS, so there is no Caddy
+# here: in Dokploy, add a domain for the `nightingale` service, container port
+# 8080, with HTTPS (Let's Encrypt). Browsers only give the microphone to secure
+# pages.
+#
+# Environment (Dokploy → Environment): SINGVERSE_URL, SINGVERSE_SECRET and
+# optionally SINGVERSE_CACHE_MB, RUST_LOG.
+
+services:
+  nightingale:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    environment:
+      # SingVerse's public URL and the secret shared with its NIGHTINGALE_SECRET.
+      SINGVERSE_URL: ${SINGVERSE_URL:?set SINGVERSE_URL}
+      SINGVERSE_SECRET: ${SINGVERSE_SECRET:?set SINGVERSE_SECRET}
+      # Disk kept for downloaded songs (least recently sung are deleted first).
+      SINGVERSE_CACHE_MB: ${SINGVERSE_CACHE_MB:-4096}
+      # Inside the data volume, which belongs to the container's non-root user.
+      NIGHTINGALE_LIBRARY_PATH: /data/songs
+      RUST_LOG: ${RUST_LOG:-info,server=info}
+    volumes:
+      - nightingale-data:/data
+    expose:
+      - "8080"
+
+volumes:
+  nightingale-data:
